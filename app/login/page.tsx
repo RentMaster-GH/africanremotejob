@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
-import PasswordInput from '@/components/PasswordInput'
 import { supabase } from '@/lib/supabase/client'
 
 export default function LoginPage() {
@@ -134,10 +133,13 @@ export default function LoginPage() {
                   Forgot password?
                 </Link>
               </div>
-              <PasswordInput
+              <input
+                type="password"
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                label=""
+                placeholder="••••••••"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-amber-500"
               />
             </div>
 
