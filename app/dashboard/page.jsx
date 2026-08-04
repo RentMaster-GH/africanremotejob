@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient' // adjust path to your supabase client
 import { useRouter } from 'next/navigation'
-import SignOutButton from '@/components/SignOutButton'
+import Navbar from '@/components/Navbar'
+import { supabase } from '@/lib/supabase/client'
 
 export default function DashboardPage() {
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
@@ -23,19 +23,59 @@ export default function DashboardPage() {
     getUser()
   }, [router])
 
-  if (loading) return <div className="p-8 text-center">Loading dashboard...</div>
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+        <p className="text-slate-400">Loading dashboard...</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <header className="flex justify-between items-center bg-white p-4 rounded-lg shadow mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">African Remote Jobs - Dashboard</h1>
-        <SignOutButton />
-      </header>
+    <div className="min-h-screen bg-slate-950 text-slate-100 pb-16">
+      <Navbar />
 
-      <main className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-2">Welcome back!</h2>
-        <p className="text-gray-600">Logged in as: <span className="font-medium text-black">{user?.email}</span></p>
-      </main>
+      <div className="max-w-4xl mx-auto pt-16 px-4">
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-8 shadow-2xl">
+          <div className="flex justify-between items-center pb-6 border-b border-slate-800 mb-6">
+            <div>
+              <h1 className="text-2xl font-black text-white">Dashboard</h1>
+              <p className="text-slate-400 text-xs mt-1">
+                Manage your profile and job applications
+              </p>
+            </div>
+            
+            <button
+              onClick={handleSignOut}
+              className="bg-red-600 hover:bg-red-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition"
+            >
+              Sign Out
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl">
+              <span className="text-xs text-slate-500 uppercase font-bold tracking-wider block mb-1">
+                Account Email
+              </span>
+              <p className="text-sm font-semibold text-amber-400">{user?.email}</p>
+            </div>
+
+            <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl">
+              <span className="text-xs text-slate-500 uppercase font-bold tracking-wider block mb-1">
+                Status
+              </span>
+              <p className="text-sm text-green-400 font-semibold">Active User</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
