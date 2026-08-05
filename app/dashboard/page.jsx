@@ -6,7 +6,7 @@ import Navbar from '@/components/Navbar'
 import { supabase } from '@/lib/supabase/client'
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
