@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase/client'
 export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -18,6 +19,12 @@ export default function SignupPage() {
     setLoading(true)
     setErrorMsg(null)
     setSuccessMsg(null)
+
+    if (password !== confirmPassword) {
+      setErrorMsg('Passwords do not match. Please check and try again.')
+      setLoading(false)
+      return
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
@@ -150,6 +157,22 @@ export default function SignupPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                Confirm Password
+              </label>
+              <input 
+                id="confirmPassword" 
+                name="confirmPassword" 
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-amber-500"
               />
