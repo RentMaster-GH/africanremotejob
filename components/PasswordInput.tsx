@@ -32,7 +32,7 @@ export default function PasswordInput({
         </label>
       )}
       <div className="relative">
-        <input
+        <input id="password" name="password" type="password" ... />
           id={id}
           type={showPassword ? 'text' : 'password'}
           value={value}

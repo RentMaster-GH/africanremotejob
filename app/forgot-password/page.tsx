@@ -60,7 +60,7 @@ export default function ForgotPasswordPage() {
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
                 Email Address
               </label>
-              <input
+              <input id="email" name="email" type="email" ... />
                 type="email"
                 required
                 value={email}

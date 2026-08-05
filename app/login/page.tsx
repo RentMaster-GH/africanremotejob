@@ -116,7 +116,7 @@ export default function LoginPage() {
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
                 Email Address
               </label>
-              <input
+              <input id="password" name="password" type="password" ... />
                 type="email"
                 required
                 value={email}
@@ -133,7 +133,7 @@ export default function LoginPage() {
                   Forgot password?
                 </Link>
               </div>
-              <input
+              <input id="email" name="email" type="email" ... />
                 type="password"
                 required
                 value={password}

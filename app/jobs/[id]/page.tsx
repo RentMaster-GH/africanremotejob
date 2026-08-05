@@ -291,7 +291,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 <form onSubmit={handleCandidateApply} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Full Name *</label>
-                    <input
+                    <input id="applicant-name" name="applicant-name" ... />
                       type="text"
                       required
                       value={candidateName}
@@ -303,7 +303,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
                   <div>
                     <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Email Address *</label>
-                    <input
+                    <input id="applicant-email" name="applicant-email" ... />
                       type="email"
                       required
                       value={candidateEmail}
@@ -315,7 +315,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
                   <div>
                     <label className="block text-xs font-bold text-slate-300 uppercase mb-1">CV / Resume Link (Google Drive / LinkedIn / PDF URL) *</label>
-                    <input
+                    <input id="applicant-resume" name="applicant-resume" ... />
                       type="url"
                       required
                       value={resumeUrl}

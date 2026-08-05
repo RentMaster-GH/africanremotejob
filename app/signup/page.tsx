@@ -127,7 +127,7 @@ export default function SignupPage() {
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
                 Email Address
               </label>
-              <input
+              <input id="email" name="email" type="email" ... />
                 type="email"
                 required
                 value={email}
@@ -141,7 +141,7 @@ export default function SignupPage() {
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
                 Password
               </label>
-              <input
+              <input id="password" name="password" type="password" ... />
                 type="password"
                 required
                 value={password}
