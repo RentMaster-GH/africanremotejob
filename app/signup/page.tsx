@@ -124,10 +124,12 @@ export default function SignupPage() {
 
           <form onSubmit={handleEmailSignup} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+              <label htmlFor="email" className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
                 Email Address
               </label>
-              <input id="email" name="email" type="email" ... />
+              <input
+                id="email" 
+                name="email"
                 type="email"
                 required
                 value={email}
@@ -138,10 +140,12 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+              <label htmlFor="password" className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
                 Password
               </label>
-              <input id="password" name="password" type="password" ... />
+              <input 
+                id="password" 
+                name="password" 
                 type="password"
                 required
                 value={password}

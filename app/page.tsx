@@ -179,9 +179,11 @@ export default function HomePage() {
             {/* Main Input */}
             <div className="lg:col-span-5 flex items-center bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 focus-within:border-amber-500 transition">
               <Search className="w-5 h-5 text-amber-500 shrink-0 mr-3" />
-              <input id="search" name="search" type="text" ... />
+              <input 
+                id="search" 
+                name="search"
                 type="text"
-                placeholder="Search job title, company, or tech stack (Python, Figma, Virtual Assistant)..."
+                placeholder="Search job title, company, or tech stack (Python, Figma, Virtual Assistant)"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="bg-transparent w-full text-sm text-white outline-none placeholder-slate-500 font-medium"

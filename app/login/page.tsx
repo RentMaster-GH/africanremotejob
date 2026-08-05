@@ -113,10 +113,12 @@ export default function LoginPage() {
 
           <form onSubmit={handleEmailLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+              <label htmlFor="email" className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
                 Email Address
               </label>
-              <input id="password" name="password" type="password" ... />
+              <input 
+                id="email" 
+                name="email"
                 type="email"
                 required
                 value={email}
@@ -128,12 +130,16 @@ export default function LoginPage() {
 
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">Password</label>
+                <label htmlFor="password" className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                  Password
+                </label>
                 <Link href="/forgot-password" className="text-xs text-amber-400 hover:underline font-bold">
                   Forgot password?
                 </Link>
               </div>
-              <input id="email" name="email" type="email" ... />
+              <input 
+                id="password" 
+                name="password" 
                 type="password"
                 required
                 value={password}
