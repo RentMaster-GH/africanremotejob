@@ -3,7 +3,6 @@
 import { useEffect, useState, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import Navbar from '@/components/Navbar'
 import { supabase } from '@/lib/supabase/client'
 import { 
   Briefcase, 
@@ -33,14 +32,8 @@ interface Job {
   description: string
   application_url_or_email: string
   is_featured: boolean
+  company_name?: string
   created_at: string
-  companies?: {
-    name: string
-    logo_url: string | null
-    country: string
-    website: string | null
-    description: string | null
-  }
 }
 
 interface PageProps {
@@ -48,7 +41,8 @@ interface PageProps {
 }
 
 export default function JobDetailPage({ params }: PageProps) {
-  const { id } = use(params)
+  const resolvedParams = use(params)
+  const jobId = resolvedParams?.id
   const router = useRouter()
 
   const [job, setJob] = useState<Job | null>(null)
@@ -56,38 +50,36 @@ export default function JobDetailPage({ params }: PageProps) {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    if (id) {
-      fetchJobDetails(id)
+    if (jobId) {
+      fetchJobDetails(jobId)
     }
-  }, [id])
+  }, [jobId])
 
-  const fetchJobDetails = async (jobId: string) => {
+  const fetchJobDetails = async (idToFetch: string) => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('jobs')
-      .select(`
-        *,
-        companies (
-          name,
-          logo_url,
-          country,
-          website,
-          description
-        )
-      `)
-      .eq('id', jobId)
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('*')
+        .eq('id', idToFetch)
+        .single()
 
-    if (!error && data) {
-      setJob(data as unknown as Job)
+      if (!error && data) {
+        setJob(data as unknown as Job)
+      }
+    } catch (err) {
+      console.error('Failed to fetch job details:', err)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    if (typeof window !== 'undefined') {
+      navigator.clipboard.writeText(window.location.href)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
   }
 
   const handleApply = () => {
@@ -105,37 +97,43 @@ export default function JobDetailPage({ params }: PageProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-        <Navbar />
-        <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
-          Loading job details...
-        </div>
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center text-slate-500 text-sm">
+        Loading job details...
       </div>
     )
   }
 
   if (!job) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-        <Navbar />
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <Briefcase className="w-12 h-12 text-slate-600 mb-4" />
-          <h2 className="text-xl font-bold text-white">Job not found</h2>
-          <p className="text-slate-400 text-xs mt-1 mb-6">This listing may have expired or been removed.</p>
-          <Link
-            href="/"
-            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-6 py-3 rounded-xl transition"
-          >
-            Back to Job Board
-          </Link>
-        </div>
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6 text-center">
+        <Briefcase className="w-12 h-12 text-slate-600 mb-4" />
+        <h2 className="text-xl font-bold text-white">Job not found</h2>
+        <p className="text-slate-400 text-xs mt-1 mb-6">This listing may have expired or been removed.</p>
+        <Link
+          href="/"
+          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-6 py-3 rounded-xl transition"
+        >
+          Back to Job Board
+        </Link>
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-amber-500 selection:text-slate-950">
-      <Navbar />
+      
+      {/* Navigation */}
+      <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 py-4 px-4 sm:px-8 flex items-center justify-between">
+        <Link href="/" className="font-black text-xl text-white tracking-tight flex items-center gap-2">
+          <span className="bg-amber-500 text-slate-950 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black">A</span>
+          African Remote Jobs
+        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/" className="text-xs font-bold text-slate-400 hover:text-white transition">
+            ← All Listings
+          </Link>
+        </div>
+      </nav>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         
@@ -143,14 +141,14 @@ export default function JobDetailPage({ params }: PageProps) {
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={() => router.back()}
-            className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-white transition"
+            className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-white transition cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Listings
           </button>
           
           <button
             onClick={handleShare}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-300 bg-slate-900 border border-slate-800 hover:border-slate-700 px-3.5 py-2 rounded-xl transition"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-300 bg-slate-900 border border-slate-800 hover:border-slate-700 px-3.5 py-2 rounded-xl transition cursor-pointer"
           >
             <Share2 className="w-3.5 h-3.5 text-amber-400" />
             {copied ? 'Link Copied!' : 'Share Role'}
@@ -167,11 +165,7 @@ export default function JobDetailPage({ params }: PageProps) {
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
             <div className="w-20 h-20 bg-slate-950 border border-slate-800 rounded-2xl flex items-center justify-center font-black text-amber-400 text-3xl shrink-0 overflow-hidden shadow-inner">
-              {job.companies?.logo_url ? (
-                <img src={job.companies.logo_url} alt={job.companies.name} className="w-full h-full object-cover" />
-              ) : (
-                job.companies?.name?.charAt(0) || 'C'
-              )}
+              {job.company_name?.charAt(0) || 'C'}
             </div>
 
             <div className="flex-1">
@@ -180,7 +174,7 @@ export default function JobDetailPage({ params }: PageProps) {
                   {job.category}
                 </span>
                 <span className="text-xs text-slate-400 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> {job.companies?.name || 'Verified Employer'}
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> {job.company_name || 'Verified Employer'}
                 </span>
               </div>
 
@@ -246,7 +240,7 @@ export default function JobDetailPage({ params }: PageProps) {
             {/* Bottom Apply Box */}
             <div className="bg-gradient-to-r from-amber-500/10 via-slate-900 to-slate-900 border border-amber-500/30 rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
               <div>
-                <h4 className="text-lg font-black text-white">Ready to join {job.companies?.name || 'this team'}?</h4>
+                <h4 className="text-lg font-black text-white">Ready to join {job.company_name || 'this team'}?</h4>
                 <p className="text-xs text-slate-400 mt-1">Make sure your resume highlights your remote project history.</p>
               </div>
 
@@ -270,34 +264,13 @@ export default function JobDetailPage({ params }: PageProps) {
 
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-center font-black text-amber-400 text-xl shrink-0 overflow-hidden">
-                  {job.companies?.logo_url ? (
-                    <img src={job.companies.logo_url} alt={job.companies.name} className="w-full h-full object-cover" />
-                  ) : (
-                    job.companies?.name?.charAt(0) || 'C'
-                  )}
+                  {job.company_name?.charAt(0) || 'C'}
                 </div>
                 <div>
-                  <h5 className="font-bold text-white text-sm">{job.companies?.name || 'Verified Employer'}</h5>
-                  <p className="text-xs text-slate-400">{job.companies?.country || 'Global'}</p>
+                  <h5 className="font-bold text-white text-sm">{job.company_name || 'Verified Employer'}</h5>
+                  <p className="text-xs text-slate-400">Global Remote</p>
                 </div>
               </div>
-
-              {job.companies?.description && (
-                <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                  {job.companies.description}
-                </p>
-              )}
-
-              {job.companies?.website && (
-                <a
-                  href={job.companies.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-bold py-3 rounded-xl transition flex items-center justify-center gap-2"
-                >
-                  Visit Website <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
-                </a>
-              )}
             </div>
 
             {/* Trust Badge Card */}
