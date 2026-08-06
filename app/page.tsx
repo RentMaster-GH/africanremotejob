@@ -146,7 +146,10 @@ export default function HomePage() {
           African Remote Jobs
         </Link>
         <div className="flex items-center gap-4">
-          <Link href="/post-job" className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl transition shadow-lg shadow-amber-500/10">
+          <Link href="/login" className="text-xs font-bold text-slate-300 hover:text-white transition cursor-pointer">
+            Sign In
+          </Link>
+          <Link href="/post-job" className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl transition shadow-lg shadow-amber-500/10 cursor-pointer">
             + Post a Job ($50)
           </Link>
         </div>
@@ -217,7 +220,7 @@ export default function HomePage() {
               {searchTerm && (
                 <button 
                   onClick={() => setSearchTerm('')} 
-                  className="text-xs text-slate-500 hover:text-white font-bold ml-2 shrink-0"
+                  className="text-xs text-slate-500 hover:text-white font-bold ml-2 shrink-0 cursor-pointer"
                 >
                   Clear
                 </button>
@@ -274,7 +277,7 @@ export default function HomePage() {
             {(searchTerm || selectedCategory !== 'All' || jobTypeFilter !== 'All' || timezoneFilter !== 'All') && (
               <button
                 onClick={resetAllFilters}
-                className="text-xs font-bold text-amber-400 hover:underline ml-auto"
+                className="text-xs font-bold text-amber-400 hover:underline ml-auto cursor-pointer"
               >
                 Reset All Filters
               </button>
