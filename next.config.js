@@ -3,7 +3,8 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   experimental: {
     webpackMemoryOptimizations: true,
+    cpus: 1,
   },
 }
 
-module.exports = nextConfig
+export default nextConfig
