@@ -1,125 +1,161 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { User } from '@supabase/supabase-js'
-import { Briefcase, PlusCircle, LogOut, User as UserIcon } from 'lucide-react'
+import Navbar from '@/components/Navbar'
 
-export default function Navbar() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+export default function PostJobPage() {
+  const [title, setTitle] = useState('')
+  const [company, setCompany] = useState('')
+  const [location, setLocation] = useState('Remote (Africa)')
+  const [salary, setSalary] = useState('')
+  const [description, setDescription] = useState('')
+  const [applyUrl, setApplyUrl] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
-      setLoading(false)
+  const router = useRouter()
+
+  const handlePostJob = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setErrorMsg(null)
+
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session?.user) {
+      router.push('/login')
+      return
     }
 
-    fetchUser()
+    const { error } = await supabase.from('jobs').insert([
+      {
+        title: title.trim(),
+        company: company.trim(),
+        location: location.trim(),
+        salary: salary.trim(),
+        description: description.trim(),
+        apply_url: applyUrl.trim(),
+        user_id: session.user.id,
+      },
+    ])
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
-      setUser(session?.user ?? null)
+    if (error) {
+      setErrorMsg('Failed to post job: ' + error.message)
       setLoading(false)
-    })
-
-    return () => {
-      subscription.unsubscribe()
+    } else {
+      router.push('/')
     }
-  }, [])
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setIsDropdownOpen(false)
-    window.location.href = '/'
   }
 
-  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
-  const initials = displayName.slice(0, 2).toUpperCase()
-
   return (
-    <nav className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center">
-          
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center font-black text-slate-950 text-xl shadow-md">
-              ARJ
-            </div>
-            <div>
-              <span className="font-extrabold text-xl tracking-tight text-white block leading-none">
-                African<span className="text-amber-500">RemoteJob</span>
-              </span>
-              <span className="text-[10px] text-slate-400 font-medium tracking-wide">
-                🌍 Remote Opportunities for Global & African Talent
-              </span>
-            </div>
-          </Link>
+    <div className="min-h-screen bg-slate-950 text-white pb-16">
+      <Navbar />
 
-          {/* Navigation Links & Auth State */}
-          <div className="flex items-center space-x-4 text-sm font-medium">
-            <Link href="/" className="hidden md:flex text-slate-300 hover:text-white transition items-center gap-1.5 mr-2">
-              <Briefcase className="w-4 h-4 text-amber-500" />
-              Browse Remote Jobs
-            </Link>
-
-            <Link href="/post-job" className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl transition flex items-center gap-2 shadow-sm text-xs sm:text-sm">
-              <PlusCircle className="w-4 h-4" />
-              Post a Remote Job
-            </Link>
-
-            {!loading && (
-              <>
-                {user ? (
-                  <div className="relative">
-                    <button
-                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                      className="flex items-center space-x-2 focus:outline-none p-1 rounded-full hover:bg-slate-800 transition border border-slate-800"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center">
-                        {initials}
-                      </div>
-                    </button>
-
-                    {isDropdownOpen && (
-                      <div
-                        className="origin-top-right absolute right-0 mt-2 w-52 rounded-2xl shadow-2xl bg-slate-900 border border-slate-800 py-2 z-50"
-                        onMouseLeave={() => setIsDropdownOpen(false)}
-                      >
-                        <div className="px-4 py-2 border-b border-slate-800">
-                          <p className="text-[10px] font-bold text-slate-500 uppercase">Signed in as</p>
-                          <p className="text-xs font-semibold text-white truncate mt-0.5">{user.email}</p>
-                        </div>
-
-                        <button
-                          onClick={handleSignOut}
-                          className="w-full text-left block px-4 py-2 text-xs font-bold text-red-400 hover:bg-slate-800 transition flex items-center gap-2 mt-1"
-                        >
-                          <LogOut className="w-4 h-4" /> Sign Out
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <Link href="/login" className="text-xs font-bold text-slate-300 hover:text-white px-3 py-2 transition">
-                      Sign In
-                    </Link>
-                    <Link href="/signup" className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white px-3.5 py-2 rounded-xl transition">
-                      Get Started
-                    </Link>
-                  </div>
-                )}
-              </>
-            )}
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pt-12">
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-xl">
+          <div className="mb-8">
+            <span className="bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest">
+              Employer Portal
+            </span>
+            <h1 className="text-2xl font-black text-white mt-3">Post a Remote Job</h1>
+            <p className="text-slate-400 text-xs mt-1">
+              Reach exceptional remote talent across Africa and globally.
+            </p>
           </div>
 
+          {errorMsg && (
+            <div className="mb-6 p-3 text-xs rounded-xl bg-red-500/10 text-red-400 border border-red-500/20">
+              {errorMsg}
+            </div>
+          )}
+
+          <form onSubmit={handlePostJob} className="space-y-5">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Job Title</label>
+              <input
+                type="text"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Senior React Developer"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-amber-500 transition"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Company Name</label>
+                <input
+                  type="text"
+                  required
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  placeholder="e.g. TechFlow Africa"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-amber-500 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Location Scope</label>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="e.g. Remote (GMT+1 to GMT+3)"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-amber-500 transition"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Salary Range (Optional)</label>
+                <input
+                  type="text"
+                  value={salary}
+                  onChange={(e) => setSalary(e.target.value)}
+                  placeholder="e.g. $3,000 - $5,000 / mo"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-amber-500 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Application URL or Email</label>
+                <input
+                  type="text"
+                  required
+                  value={applyUrl}
+                  onChange={(e) => setApplyUrl(e.target.value)}
+                  placeholder="https://company.com/apply or jobs@company.com"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-amber-500 transition"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Job Description</label>
+              <textarea
+                required
+                rows={6}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe role responsibilities, tech stack, requirements, and benefits..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs text-white outline-none focus:border-amber-500 transition resize-none"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl text-xs transition shadow-md"
+            >
+              {loading ? 'Publishing job...' : 'Publish Remote Job Listing'}
+            </button>
+          </form>
         </div>
       </div>
-    </nav>
+    </div>
   )
 }
