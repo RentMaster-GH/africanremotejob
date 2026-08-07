@@ -1,11 +1,13 @@
 // src/components/ChatWindow.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat } from '../hooks/useChat';
+import { VideoCallModal } from './VideoCallModal';
+import { supabase } from '../lib/supabaseClient';
 
 interface ChatWindowProps {
   conversationId: string;
   currentUserId: string;
-  recipientName: string; // e.g., "Google" or "John Doe"
+  recipientName: string;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -13,26 +15,48 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   currentUserId,
   recipientName,
 }) => {
-  // Destructure uploadFile along with other hook utilities
   const { messages, loading, error, sendMessage, uploadFile } = useChat(
     conversationId,
     currentUserId
   );
-  
+
   const [textInput, setTextInput] = useState<string>('');
   const [sending, setSending] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Auto-scroll to bottom on new message
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  // Video Call State
+  const [activeCall, setActiveCall] = useState<{
+    isOpen: boolean;
+    isCaller: boolean;
+  }>({ isOpen: false, isCaller: false });
 
+  // Auto-scroll to bottom
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Handle sending text messages
+  // Listen for incoming call notifications
+  useEffect(() => {
+    const channel = supabase.channel(`call:${conversationId}`);
+
+    channel
+      .on('broadcast', { event: 'offer' }, ({ payload }) => {
+        if (payload.senderId !== currentUserId) {
+          // Open call modal for receiver
+          setActiveCall({ isOpen: true, isCaller: false });
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversationId, currentUserId]);
+
+  const handleStartCall = () => {
+    setActiveCall({ isOpen: true, isCaller: true });
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!textInput.trim() || sending) return;
@@ -48,7 +72,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   };
 
-  // Handle file uploads (PDFs, Resumes, Images)
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -60,7 +83,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       alert('Failed to upload file.');
     } finally {
       setSending(false);
-      e.target.value = ''; // Reset file input
+      e.target.value = '';
     }
   };
 
@@ -68,10 +91,28 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
 
   return (
-    <div className="flex flex-col h-[600px] border rounded-lg bg-white shadow-sm">
-      {/* Chat Header */}
+    <div className="flex flex-col h-[600px] border rounded-lg bg-white shadow-sm relative">
+      {/* Video Call Overlay Modal */}
+      {activeCall.isOpen && (
+        <VideoCallModal
+          conversationId={conversationId}
+          currentUserId={currentUserId}
+          recipientName={recipientName}
+          isCaller={activeCall.isCaller}
+          onClose={() => setActiveCall({ isOpen: false, isCaller: false })}
+        />
+      )}
+
+      {/* Chat Header with Video Call Button */}
       <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
         <h3 className="font-semibold text-lg">Chat with {recipientName}</h3>
+
+        <button
+          onClick={handleStartCall}
+          className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm transition-colors"
+        >
+          📹 Start Video Call
+        </button>
       </div>
 
       {/* Messages List */}
@@ -116,7 +157,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* Message Input Form */}
       <form onSubmit={handleSend} className="p-3 border-t flex items-center gap-2">
-        {/* Hidden File Input + Paperclip Button */}
         <label className="cursor-pointer text-gray-500 hover:text-gray-700 p-2 transition-colors">
           📎
           <input
@@ -128,7 +168,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           />
         </label>
 
-        {/* Text Input */}
         <input
           type="text"
           value={textInput}
@@ -139,7 +178,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
 
-        {/* Send Button */}
         <button
           type="submit"
           disabled={sending || !textInput.trim()}
