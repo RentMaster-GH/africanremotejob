@@ -148,6 +148,9 @@ export default function HomePage() {
           African Remote Jobs
         </Link>
         <div className="flex items-center gap-4">
+          <Link href="/reviews" className="text-xs font-bold text-amber-400 hover:underline transition flex items-center gap-1 cursor-pointer">
+            ★ Reviews
+          </Link>
           <Link href="/login" className="text-xs font-bold text-slate-300 hover:text-white transition cursor-pointer">
             Sign In
           </Link>
