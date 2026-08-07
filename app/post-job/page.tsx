@@ -58,7 +58,11 @@ export default function PostJobPage() {
           },
         ])
 
-      if (insertError) throw insertError
+      if (insertError) {
+        setError(insertError.message || 'Failed to publish job listing.')
+        setLoading(false)
+        return
+      }
 
       setSuccess(true)
       setTimeout(() => {
@@ -66,7 +70,9 @@ export default function PostJobPage() {
         router.refresh()
       }, 1500)
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to publish job listing.'
+      const errorMessage = typeof err === 'object' && err !== null && 'message' in err 
+        ? String((err as { message: unknown }).message)
+        : 'Failed to publish job listing.'
       setError(errorMessage)
     } finally {
       setLoading(false)
@@ -334,7 +340,7 @@ export default function PostJobPage() {
               </div>
             </div>
 
-            {/* Section 6: Featured Sponsor Checkbox */}
+            {/* Section 6: Featured Checkbox */}
             <div className="pt-2">
               <label className="flex items-center gap-3 bg-slate-950 border border-slate-800 p-4 rounded-xl cursor-pointer hover:border-amber-500/50 transition">
                 <input
