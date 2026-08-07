@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Script from 'next/script'
 import { supabase } from '@/lib/supabase/client'
 import { 
   Heart, 
@@ -14,7 +15,6 @@ import {
   ArrowLeft, 
   Coffee, 
   ShieldCheck,
-  Send,
   Gift
 } from 'lucide-react'
 
@@ -77,51 +77,71 @@ export default function DonatePage() {
     }
   }
 
+  const saveDonationToDatabase = async (finalAmount: number, ref: string) => {
+    try {
+      await supabase.from('donations').insert([
+        {
+          donor_name: donorName.trim() || 'Generous Patron',
+          donor_email: donorEmail.trim() || null,
+          amount: finalAmount,
+          currency,
+          payment_method: paymentMethod,
+          message: supporterMessage.trim() || `Ref: ${ref}`,
+        },
+      ])
+      setSuccess(true)
+      loadDonations()
+    } catch (err) {
+      console.error('Failed to record donation:', err)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const handleDonate = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    setSubmitting(true)
 
     const finalAmount = customAmount ? Number(customAmount) : selectedAmount
 
     if (!finalAmount || finalAmount < 1) {
       setError('Minimum donation amount is 1 unit of currency.')
-      setSubmitting(false)
       return
     }
 
-    try {
-      // Save donation to Supabase
-      const { error: insertError } = await supabase
-        .from('donations')
-        .insert([
-          {
-            donor_name: donorName.trim() || 'Generous Patron',
-            donor_email: donorEmail.trim() || null,
-            amount: finalAmount,
-            currency,
-            payment_method: paymentMethod,
-            message: supporterMessage.trim() || null,
-          },
-        ])
+    setSubmitting(true)
 
-      if (insertError) throw insertError
+    // Check if Paystack Inline script is loaded
+    const paystackPublicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
 
-      setSuccess(true)
-      loadDonations()
-    } catch (err: unknown) {
-      const errorMessage = typeof err === 'object' && err !== null && 'message' in err
-        ? String((err as { message: unknown }).message)
-        : 'Donation processing failed.'
-      setError(errorMessage)
-    } finally {
-      setSubmitting(false)
+    if (typeof window !== 'undefined' && (window as any).PaystackPop && paystackPublicKey) {
+      // Trigger Paystack Live Checkout Popup
+      const handler = (window as any).PaystackPop.setup({
+        key: paystackPublicKey,
+        email: donorEmail.trim() || 'supporter@africanremotejob.com',
+        amount: Math.round(finalAmount * 100), // Amount in Pesewas/Cents
+        currency: currency,
+        ref: 'DON-' + Math.floor(Math.random() * 1000000000 + 1),
+        callback: function (response: any) {
+          saveDonationToDatabase(finalAmount, response.reference)
+        },
+        onClose: function () {
+          setSubmitting(false)
+        },
+      })
+      handler.openIframe()
+    } else {
+      // Fallback: Record intent & show USSD instructions
+      await saveDonationToDatabase(finalAmount, 'DIRECT-MOMO')
     }
   }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-amber-500 selection:text-slate-950">
       
+      {/* Paystack Inline Script Loader */}
+      <Script src="https://js.paystack.co/v1/inline.js" strategy="lazyOnload" />
+
       {/* Navigation Bar */}
       <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 py-4 px-4 sm:px-8 flex items-center justify-between">
         <Link href="/" className="font-black text-xl text-white tracking-tight flex items-center gap-2">
@@ -143,7 +163,7 @@ export default function DonatePage() {
           </div>
           <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight">Support African Remote Jobs</h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-2 font-medium max-w-lg mx-auto">
-            Donate as little as <span className="text-amber-400 font-bold">1 Cedi (₵1)</span> or its foreign currency equivalent to help keep this platform free and accessible for African job seekers.
+            Donate as little as <span className="text-amber-400 font-bold">1 Cedi (₵1)</span> or its foreign currency equivalent to help keep this platform free for African job seekers.
           </p>
         </div>
 
@@ -159,11 +179,28 @@ export default function DonatePage() {
                 </div>
                 <h3 className="text-2xl font-black text-white">Thank You for Your Support! 🙏</h3>
                 <p className="text-slate-300 text-xs max-w-md mx-auto leading-relaxed">
-                  Your generous contribution of <strong className="text-amber-400">{CURRENCY_SYMBOLS[currency]}{customAmount || selectedAmount}</strong> directly funds server hosting, security, and free job distribution across Africa.
+                  Your contribution of <strong className="text-amber-400">{CURRENCY_SYMBOLS[currency]}{customAmount || selectedAmount}</strong> helps fund server hosting and keep job listings free across Africa.
                 </p>
+
+                {/* Ghana MoMo Manual USSD Instructions Box */}
+                {paymentMethod === 'momo' && (
+                  <div className="bg-slate-950 border border-amber-500/30 p-4 rounded-2xl text-left text-xs space-y-2 mt-4">
+                    <p className="font-bold text-amber-400 flex items-center gap-1.5">
+                      <Smartphone className="w-4 h-4" /> Did not receive the USSD prompt on your phone?
+                    </p>
+                    <p className="text-slate-300 text-[11px]">
+                      If the automatic pop-up prompt didn't display on your phone screen, approve it manually:
+                    </p>
+                    <ul className="list-disc pl-5 text-[11px] text-slate-400 font-mono space-y-1">
+                      <li><strong>MTN MoMo:</strong> Dial <strong>*170#</strong> → Option 6 (My Wallet) → Option 3 (My Approvals)</li>
+                      <li><strong>Telecel Cash:</strong> Dial <strong>*110#</strong> → Pending Transactions</li>
+                    </ul>
+                  </div>
+                )}
+
                 <button
                   onClick={() => setSuccess(false)}
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-6 py-3 rounded-xl transition cursor-pointer"
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-6 py-3 rounded-xl transition cursor-pointer mt-4"
                 >
                   Make Another Contribution
                 </button>
@@ -288,7 +325,7 @@ export default function DonatePage() {
                   </div>
                 </div>
 
-                {/* Conditional Fields based on Payment Method */}
+                {/* MoMo Provider Details */}
                 {paymentMethod === 'momo' && (
                   <div className="space-y-3 bg-slate-950 p-4 rounded-2xl border border-slate-800">
                     <p className="text-xs font-bold text-amber-400 flex items-center gap-1">
@@ -321,7 +358,7 @@ export default function DonatePage() {
                           id="momoNumber"
                           name="momoNumber"
                           type="text"
-                          placeholder="e.g. 024 123 4567"
+                          placeholder="e.g. 0241234567"
                           value={momoNumber}
                           onChange={(e) => setMomoNumber(e.target.value)}
                           className="w-full bg-slate-900 border border-slate-800 text-white text-xs rounded-xl px-3 py-2.5 outline-none font-medium"
@@ -341,7 +378,7 @@ export default function DonatePage() {
                       id="donorName"
                       name="donorName"
                       type="text"
-                      placeholder="e.g. Kwame Mensah (or leave blank for Anonymous)"
+                      placeholder="e.g. Kwame Mensah"
                       value={donorName}
                       onChange={(e) => setDonorName(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-white text-xs rounded-xl px-4 py-3 outline-none font-medium transition"
