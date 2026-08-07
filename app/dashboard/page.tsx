@@ -14,7 +14,8 @@ import {
   Clock, 
   ArrowUpRight,
   Mail,
-  AlertCircle
+  AlertCircle,
+  Settings
 } from 'lucide-react'
 
 interface Job {
@@ -113,7 +114,14 @@ export default function DashboardPage() {
           African Remote Jobs
         </Link>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <Link 
+            href="/settings" 
+            className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+          >
+            <Settings className="w-3.5 h-3.5 text-amber-400" /> Settings
+          </Link>
+
           <Link 
             href="/post-job" 
             className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-amber-500/10 cursor-pointer"
@@ -123,7 +131,7 @@ export default function DashboardPage() {
 
           <button
             onClick={handleSignOut}
-            className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+            className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5 text-rose-400" /> Sign Out
           </button>
