@@ -11,7 +11,10 @@ import {
   Sparkles, 
   CheckCircle2, 
   AlertCircle,
-  Send
+  Send,
+  HelpCircle,
+  Mail,
+  ExternalLink
 } from 'lucide-react'
 
 export default function PostJobPage() {
@@ -295,11 +298,47 @@ export default function PostJobPage() {
               </div>
             </div>
 
-            {/* Section 4: Application URL or Email */}
+            {/* Section 4: Application URL or Email + Guidance Card */}
             <div className="space-y-4 pt-4 border-t border-slate-800/80">
               <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
                 <Send className="w-4 h-4" /> Application Link or Email
               </h3>
+
+              {/* Employer Guidance Help Card */}
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 sm:p-5 text-xs text-slate-300 space-y-2.5">
+                <div className="flex items-center gap-2 font-bold text-amber-400 text-xs uppercase tracking-wider">
+                  <HelpCircle className="w-4 h-4 text-amber-500" />
+                  <span>Employer Best Practice Guidance</span>
+                </div>
+                <p className="leading-relaxed text-slate-300 font-medium">
+                  When applicants click <strong className="text-white">"Apply for this role"</strong>, they will be redirected to the value you enter below. You must enter either:
+                </p>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
+                    <p className="font-bold text-amber-400 text-[11px] flex items-center gap-1.5 mb-1">
+                      <ExternalLink className="w-3.5 h-3.5" /> A Real Live Form / Career URL
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-mono space-y-0.5">
+                      <span>• https://forms.google.com/your-form</span><br />
+                      <span>• https://typeform.com/your-form</span><br />
+                      <span>• https://yourcompany.com/careers</span>
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
+                    <p className="font-bold text-amber-400 text-[11px] flex items-center gap-1.5 mb-1">
+                      <Mail className="w-3.5 h-3.5" /> A Valid Email Address
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-mono">
+                      <span>• careers@yourcompany.com</span>
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      (Automatically opens applicant's email program with a pre-filled subject line).
+                    </p>
+                  </div>
+                </div>
+              </div>
 
               <div>
                 <label htmlFor="applicationUrlOrEmail" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
@@ -310,14 +349,11 @@ export default function PostJobPage() {
                   name="applicationUrlOrEmail"
                   type="text"
                   required
-                  placeholder="e.g. https://forms.google.com/your-form OR hiring@company.com"
+                  placeholder="e.g. https://forms.google.com/your-form OR careers@yourcompany.com"
                   value={applicationUrlOrEmail}
                   onChange={(e) => setApplicationUrlOrEmail(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-white text-xs rounded-xl px-4 py-3 outline-none font-medium transition"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Candidates will be sent directly to this URL or email when clicking "Apply for this role".
-                </p>
               </div>
             </div>
 
@@ -340,7 +376,7 @@ export default function PostJobPage() {
               </div>
             </div>
 
-            {/* Section 6: Featured Checkbox */}
+            {/* Section 6: Featured Sponsor Checkbox */}
             <div className="pt-2">
               <label className="flex items-center gap-3 bg-slate-950 border border-slate-800 p-4 rounded-xl cursor-pointer hover:border-amber-500/50 transition">
                 <input
