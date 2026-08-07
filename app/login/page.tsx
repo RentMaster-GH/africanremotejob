@@ -28,7 +28,11 @@ export default function AuthPage({ initialIsSignUp = false }: { initialIsSignUp?
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  
+  // Toggle Password Visibility
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   
   // Feedback States
   const [loading, setLoading] = useState(false)
@@ -39,26 +43,33 @@ export default function AuthPage({ initialIsSignUp = false }: { initialIsSignUp?
     e.preventDefault()
     setError(null)
     setMessage(null)
+
+    if (isSignUp && password !== confirmPassword) {
+      setError('Passwords do not match. Please check and try again.')
+      return
+    }
+
     setLoading(true)
 
     try {
       if (isSignUp) {
         // Sign Up Logic
         const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
             data: {
-              full_name: fullName,
+              full_name: fullName.trim(),
               user_role: role,
             },
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
           },
         })
 
         if (signUpError) throw signUpError
 
         if (data.user && data.session === null) {
-          setMessage('Success! Please check your email to confirm your account.')
+          setMessage('Account created! Please check your email inbox to confirm your account.')
         } else {
           setMessage('Account created successfully! Redirecting...')
           setTimeout(() => router.push('/dashboard'), 1500)
@@ -66,7 +77,7 @@ export default function AuthPage({ initialIsSignUp = false }: { initialIsSignUp?
       } else {
         // Login Logic
         const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim(),
           password,
         })
 
@@ -78,8 +89,9 @@ export default function AuthPage({ initialIsSignUp = false }: { initialIsSignUp?
           router.refresh()
         }, 1000)
       }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during authentication.')
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred during authentication.'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -91,12 +103,13 @@ export default function AuthPage({ initialIsSignUp = false }: { initialIsSignUp?
       const { error: googleError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
         },
       })
       if (googleError) throw googleError
-    } catch (err: any) {
-      setError(err.message || 'Google sign-in failed.')
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Google sign-in failed.'
+      setError(errorMessage)
     }
   }
 
@@ -301,6 +314,36 @@ export default function AuthPage({ initialIsSignUp = false }: { initialIsSignUp?
                   </button>
                 </div>
               </div>
+
+              {/* Confirm Password Field (Sign Up Only) */}
+              {isSignUp && (
+                <div>
+                  <label htmlFor="confirmPassword" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Confirm Password
+                  </label>
+                  <div className="relative flex items-center">
+                    <Lock className="w-4 h-4 text-slate-500 absolute left-3.5" />
+                    <input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      required={isSignUp}
+                      minLength={6}
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-white text-xs rounded-xl pl-10 pr-10 py-3 outline-none font-medium transition"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3.5 text-slate-500 hover:text-slate-300 cursor-pointer"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Submit Button */}
               <button
