@@ -15,7 +15,9 @@ import {
   ArrowUpRight,
   Mail,
   AlertCircle,
-  Settings
+  Settings,
+  Pencil,
+  Trash2
 } from 'lucide-react'
 
 interface Job {
@@ -44,18 +46,15 @@ export default function DashboardPage() {
       setLoading(true)
       setError(null)
 
-      // 1. Get current authenticated user safely
       const { data, error: authError } = await supabase.auth.getUser()
 
       if (authError || !data?.user) {
-        // Not logged in -> redirect to login page
         router.push('/login')
         return
       }
 
       setUser(data.user)
 
-      // 2. Fetch jobs from Supabase
       const { data: jobsData, error: jobsError } = await supabase
         .from('jobs')
         .select('*')
@@ -69,6 +68,26 @@ export default function DashboardPage() {
       setError('Failed to load dashboard metrics. Please refresh.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDeleteJob = async (jobId: string, jobTitle: string) => {
+    const confirmed = window.confirm(`Are you sure you want to delete "${jobTitle}"? This action cannot be undone.`)
+    if (!confirmed) return
+
+    try {
+      const { error: deleteError } = await supabase
+        .from('jobs')
+        .delete()
+        .eq('id', jobId)
+
+      if (deleteError) throw deleteError
+
+      // Update UI list immediately
+      setPostedJobs((prev) => prev.filter((j) => j.id !== jobId))
+    } catch (err: unknown) {
+      console.error('Delete Job Error:', err)
+      alert('Failed to delete job listing.')
     }
   }
 
@@ -98,7 +117,6 @@ export default function DashboardPage() {
     return null
   }
 
-  // Crash-Proof String Conversions
   const rawRole = user?.user_metadata?.user_role
   const userRole = typeof rawRole === 'string' ? rawRole : 'Job Seeker'
   const displayRole = userRole.replace(/_/g, ' ')
@@ -107,7 +125,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-amber-500 selection:text-slate-950">
       
-      {/* Dashboard Header / Nav */}
+      {/* Nav */}
       <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 py-4 px-4 sm:px-8 flex items-center justify-between">
         <Link href="/" className="font-black text-xl text-white tracking-tight flex items-center gap-2">
           <span className="bg-amber-500 text-slate-950 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black">A</span>
@@ -214,7 +232,7 @@ export default function DashboardPage() {
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-black text-white flex items-center gap-2">
-              <Briefcase className="w-5 h-5 text-amber-500" /> Live Job Listings ({postedJobs.length})
+              <Briefcase className="w-5 h-5 text-amber-500" /> Manage Job Listings ({postedJobs.length})
             </h2>
             <Link href="/" className="text-xs font-bold text-amber-400 hover:underline flex items-center gap-1">
               View Full Feed <ArrowUpRight className="w-3.5 h-3.5" />
@@ -253,12 +271,29 @@ export default function DashboardPage() {
                     <p className="text-xs text-slate-400 mt-0.5">{job.company_name || 'Verified Employer'}</p>
                   </div>
 
-                  <Link
-                    href={`/jobs/${job.id}`}
-                    className="bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 shrink-0"
-                  >
-                    View Job <ArrowUpRight className="w-3.5 h-3.5 text-amber-400" />
-                  </Link>
+                  {/* Actions: View, Edit, Delete */}
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <Link
+                      href={`/jobs/${job.id}`}
+                      className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1"
+                    >
+                      View <ArrowUpRight className="w-3.5 h-3.5 text-amber-400" />
+                    </Link>
+
+                    <Link
+                      href={`/jobs/${job.id}/edit`}
+                      className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Pencil className="w-3.5 h-3.5" /> Edit
+                    </Link>
+
+                    <button
+                      onClick={() => handleDeleteJob(job.id, job.title)}
+                      className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
