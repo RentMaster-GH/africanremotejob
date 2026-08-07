@@ -16,7 +16,8 @@ import {
   Headphones, 
   TrendingUp, 
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  ShieldCheck
 } from 'lucide-react'
 
 interface Job {
@@ -32,6 +33,7 @@ interface Job {
   description: string
   application_url_or_email: string
   is_featured: boolean
+  is_verified?: boolean
   company_name?: string
   created_at: string
 }
@@ -368,8 +370,16 @@ export default function HomePage() {
                       <span className="bg-slate-950 text-slate-300 border border-slate-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase">
                         {job.category}
                       </span>
-                      <span className="text-xs text-slate-400 font-semibold flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> {job.company_name || 'Verified Employer'}
+                      <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5">
+                        {job.is_verified ? (
+                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Verified Landlord / Employer
+                          </span>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> {job.company_name || 'Verified Employer'}
+                          </>
+                        )}
                       </span>
                     </div>
 
@@ -402,7 +412,7 @@ export default function HomePage() {
                 <div className="flex items-center gap-3 w-full md:w-auto justify-end border-t md:border-t-0 border-slate-800/80 pt-4 md:pt-0">
                   <Link
                     href={`/jobs/${job.id}`}
-                    className="w-full md:w-auto text-center bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-6 py-3.5 rounded-xl transition flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/10 cursor-pointer"
+                    className="w-full md:w-auto text-center bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-6 py-3.5 rounded-xl transition shadow-lg shadow-amber-500/10 cursor-pointer"
                   >
                     View Role & Apply <ArrowUpRight className="w-4 h-4" />
                   </Link>
