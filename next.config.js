@@ -3,7 +3,13 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   reactStrictMode: false,
 
-  // Disable Webpack RAM Caching during build
+  // FORCE NEXT.JS 15 TO USE 1 CPU WORKER (Stops memory multiplication)
+  experimental: {
+    webpackBuildWorker: false,
+    cpus: 1,
+  },
+
+  // Disable Webpack RAM Caching
   webpack: (config) => {
     config.cache = false;
     return config;
