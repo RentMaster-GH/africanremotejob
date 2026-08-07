@@ -7,9 +7,11 @@ export async function GET(request: Request) {
   const next = searchParams.get('next') ?? '/dashboard'
 
   if (code) {
+    const response = NextResponse.redirect(`${origin}${next}`)
+
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://onxkdycfflmtgozfemsx.supabase.co',
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ueGtkeWNmZmxtdGdvemZlbXN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1MTY3MjEsImV4cCI6MjEwMTA5MjcyMX0.y90TlFyB3aTpLQeyIvATVkg2APebjSzEimKb7gVFI0Q',
+      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder',
       {
         cookies: {
           getAll() {
@@ -18,14 +20,23 @@ export async function GET(request: Request) {
               return { name, value: rest.join('=') }
             }) ?? []
           },
-          setAll() {},
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              response.cookies.set(name, value, {
+                ...options,
+                maxAge: 60 * 60 * 24 * 365, // 1 Year persistent login session
+                sameSite: 'lax',
+                path: '/',
+              })
+            })
+          },
         },
       }
     )
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
+      return response
     }
   }
 
