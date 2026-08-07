@@ -17,7 +17,8 @@ import {
   AlertCircle,
   Settings,
   Pencil,
-  Trash2
+  Trash2,
+  HelpCircle
 } from 'lucide-react'
 
 interface Job {
@@ -83,7 +84,6 @@ export default function DashboardPage() {
 
       if (deleteError) throw deleteError
 
-      // Update UI list immediately
       setPostedJobs((prev) => prev.filter((j) => j.id !== jobId))
     } catch (err: unknown) {
       console.error('Delete Job Error:', err)
@@ -125,7 +125,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-amber-500 selection:text-slate-950">
       
-      {/* Nav */}
+      {/* Dashboard Header / Nav */}
       <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 py-4 px-4 sm:px-8 flex items-center justify-between">
         <Link href="/" className="font-black text-xl text-white tracking-tight flex items-center gap-2">
           <span className="bg-amber-500 text-slate-950 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black">A</span>
@@ -134,8 +134,15 @@ export default function DashboardPage() {
 
         <div className="flex items-center gap-3">
           <Link 
+            href="/support" 
+            className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-bold px-3 py-2.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-amber-400" /> Support
+          </Link>
+
+          <Link 
             href="/settings" 
-            className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+            className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-bold px-3 py-2.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
           >
             <Settings className="w-3.5 h-3.5 text-amber-400" /> Settings
           </Link>
@@ -149,7 +156,7 @@ export default function DashboardPage() {
 
           <button
             onClick={handleSignOut}
-            className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+            className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 text-xs font-bold px-3 py-2.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5 text-rose-400" /> Sign Out
           </button>
