@@ -18,7 +18,8 @@ import {
   Zap,
   CheckCircle2,
   ShieldCheck,
-  HelpCircle
+  HelpCircle,
+  Heart
 } from 'lucide-react'
 
 interface Job {
@@ -142,13 +143,16 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-amber-500 selection:text-slate-950">
       
-      {/* Inline Navigation Bar with Customer Support Button */}
+      {/* Inline Navigation Bar with Support Us (₵1) Button */}
       <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 py-4 px-4 sm:px-8 flex items-center justify-between">
         <Link href="/" className="font-black text-xl text-white tracking-tight flex items-center gap-2">
           <span className="bg-amber-500 text-slate-950 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black">A</span>
           African Remote Jobs
         </Link>
         <div className="flex items-center gap-3 sm:gap-4">
+          <Link href="/donate" className="bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 text-xs font-extrabold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/10 shrink-0">
+            <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" /> Support Us (₵1)
+          </Link>
           <Link href="/support" className="text-xs font-bold text-slate-300 hover:text-white transition flex items-center gap-1 cursor-pointer bg-slate-900 border border-slate-800 hover:border-slate-700 px-3 py-2 rounded-xl">
             <HelpCircle className="w-3.5 h-3.5 text-amber-400" /> Support
           </Link>
@@ -197,10 +201,10 @@ export default function HomePage() {
               <Briefcase className="w-4 h-4" /> Find Remote Jobs
             </a>
             <Link
-              href="/support"
+              href="/donate"
               className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 font-bold text-sm px-8 py-4 rounded-xl transition flex items-center justify-center gap-2"
             >
-              <HelpCircle className="w-4 h-4 text-amber-400" /> Customer Support
+              <Heart className="w-4 h-4 text-rose-500 fill-rose-500" /> Support Us (₵1)
             </Link>
           </div>
 
@@ -324,8 +328,8 @@ export default function HomePage() {
                     <p className="text-[11px] text-slate-500 mt-0.5">{cat.count}</p>
                   </div>
                 </button>
-              )
-            })}
+              )}
+            )}
           </div>
         </div>
 
