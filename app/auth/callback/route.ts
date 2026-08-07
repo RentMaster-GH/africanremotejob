@@ -1,53 +1,33 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  
-  // Safe validation of the redirect target
-  let next = searchParams.get('next') ?? '/dashboard'
-  if (!next.startsWith('/')) {
-    next = '/dashboard'
-  }
+  const next = searchParams.get('next') ?? '/dashboard'
 
   if (code) {
-    const cookieStore = await cookies()
-    
-    // Create a specialized server client that can write authentication cookies
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://onxkdycfflmtgozfemsx.supabase.co',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ueGtkeWNmZmxtdGdvemZlbXN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1MTY3MjEsImV4cCI6MjEwMTA5MjcyMX0.y90TlFyB3aTpLQeyIvATVkg2APebjSzEimKb7gVFI0Q',
       {
         cookies: {
           getAll() {
-            return cookieStore.getAll()
+            return request.headers.get('cookie')?.split(';').map(cookie => {
+              const [name, ...rest] = cookie.trim().split('=')
+              return { name, value: rest.join('=') }
+            }) ?? []
           },
-          setAll(cookiesToSet: any[]) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
-              )
-            } catch {
-              // The `setAll` method was called from a Server Component.
-              // This can be ignored if you have middleware refreshing
-              // user sessions.
-            }
-          },
+          setAll() {},
         },
       }
     )
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
-    
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`)
-    } else {
-      console.error('Supabase code exchange error:', error.message)
     }
   }
 
-  // Fallback redirect to login if something went wrong
-  return NextResponse.redirect(`${origin}/login?error=OAuthFailed`)
+  return NextResponse.redirect(`${origin}/login`)
 }
