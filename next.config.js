@@ -1,12 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Disable memory-heavy browser source maps in production
   productionBrowserSourceMaps: false,
-  eslint: {
-    ignoreDuringBuilds: true,
+
+  // Prevent Next.js 15 from spawning multiple RAM-heavy build workers
+  experimental: {
+    webpackBuildWorker: false,
   },
+
+  // Skip ESLint and TypeScript checks during build to save memory
   typescript: {
     ignoreBuildErrors: true,
   },
-}
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+};
 
-module.exports = nextConfig
+export default nextConfig;
