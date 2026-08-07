@@ -157,10 +157,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   };
 
   const isEmployer = convMeta?.employerId === currentUserId;
-  const recipientId =
-    initialRecipientId ||
-    (isEmployer ? convMeta?.candidateId : convMeta?.employerId) ||
-    '';
 
   if (loading) return <div className="p-4">Loading messages...</div>;
   if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
@@ -271,9 +267,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* Message Input Form */}
       <form onSubmit={handleSend} className="p-3 border-t flex items-center gap-2">
-        <label className="cursor-pointer text-gray-500 hover:text-gray-700 p-2 transition-colors">
+        {/* Attachment Label & Input with explicit id, name, and htmlFor */}
+        <label
+          htmlFor="chat-file-input"
+          className="cursor-pointer text-gray-500 hover:text-gray-700 p-2 transition-colors"
+        >
           📎
           <input
+            id="chat-file-input"
+            name="chat-file-input"
             type="file"
             className="hidden"
             accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
@@ -282,7 +284,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           />
         </label>
 
+        {/* Text Input with explicit id and name */}
         <input
+          id="chat-message-input"
+          name="chat-message-input"
           type="text"
           value={textInput}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
