@@ -1,35 +1,50 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-
-export const dynamic = 'force-dynamic'
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// app/layout.tsx
+import type { Metadata } from 'next';
+import './globals.css'; // Your CSS imports
 
 export const metadata: Metadata = {
-  title: "African Remote Jobs",
-  description: "Find remote jobs for African talent",
+  title: 'African Remote Job - Remote Jobs for African Talent',
+  description:
+    'Connect with top global companies hiring African remote talent. Video interviews, chat, and secure payments.',
+  keywords: [
+    'remote jobs africa',
+    'work from home',
+    'remote tech jobs',
+    'freelancer africa',
+  ],
+
+  // 1. Google Verification Code HERE
+  verification: {
+    google: 'LF2pY_30gmjwRD1z7KGkXS3yUdPOcIG0l27r0fSTApU',
+  },
+
+  // 2. OpenGraph Meta Tags for Social Previews (WhatsApp, LinkedIn, Twitter)
+  openGraph: {
+    title: 'African Remote Job - Work From Home',
+    description:
+      'Connect with top global companies hiring African remote talent.',
+    url: 'https://www.africanremotejob.com',
+    siteName: 'African Remote Job',
+    images: [
+      {
+        url: 'https://www.africanremotejob.com/og-image.jpg', // Make sure this image exists in your public folder
+        width: 1200,
+        height: 630,
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
 };
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en">
+      <body>{children}</body>
     </html>
   );
 }
