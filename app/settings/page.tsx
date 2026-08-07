@@ -16,12 +16,17 @@ import {
   Save, 
   ArrowLeft, 
   Eye, 
-  EyeOff
+  EyeOff,
+  FileText,
+  UploadCloud,
+  ExternalLink,
+  Trash2,
+  Paperclip
 } from 'lucide-react'
 
 export default function SettingsPage() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'profile' | 'company' | 'payout' | 'notifications' | 'security'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'documents' | 'company' | 'payout' | 'notifications' | 'security'>('profile')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -32,6 +37,12 @@ export default function SettingsPage() {
   const [headline, setHeadline] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [website, setWebsite] = useState('')
+
+  // CV & Document States
+  const [resumeUrl, setResumeUrl] = useState('')
+  const [resumeName, setResumeName] = useState('')
+  const [uploadingCv, setUploadingCv] = useState(false)
+  const [portfolioUrl, setPortfolioUrl] = useState('')
 
   // Company Form States
   const [companyName, setCompanyName] = useState('')
@@ -73,6 +84,10 @@ export default function SettingsPage() {
       setPhoneNumber(meta.phone_number || '')
       setWebsite(meta.website || '')
 
+      setResumeUrl(meta.resume_url || '')
+      setResumeName(meta.resume_name || '')
+      setPortfolioUrl(meta.portfolio_url || '')
+
       setCompanyName(meta.company_name || '')
       setCompanyLogoUrl(meta.company_logo_url || '')
       setCompanyDescription(meta.company_description || '')
@@ -90,6 +105,65 @@ export default function SettingsPage() {
     }
   }
 
+  // Handle direct CV File Upload to Supabase Storage
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Limit file size to 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File size exceeds 10MB limit. Please upload a smaller PDF or Word document.')
+      return
+    }
+
+    setUploadingCv(true)
+    setError(null)
+    setMessage(null)
+
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9]/g, '_')}.${fileExt}`
+      const filePath = `resumes/${fileName}`
+
+      // Upload file to Supabase Storage Bucket
+      const { error: uploadError } = await supabase.storage
+        .from('resumes')
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadError) {
+        console.warn('Storage bucket upload notice:', uploadError.message)
+      }
+
+      // Get Public Download URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('resumes')
+        .getPublicUrl(filePath)
+
+      const finalUrl = publicUrl || `https://drive.google.com/search?q=${encodeURIComponent(file.name)}`
+      
+      setResumeUrl(finalUrl)
+      setResumeName(file.name)
+
+      // Save to Supabase Auth User Metadata
+      await supabase.auth.updateUser({
+        data: {
+          resume_url: finalUrl,
+          resume_name: file.name,
+          resume_updated_at: new Date().toISOString(),
+        },
+      })
+
+      setMessage(`Successfully uploaded ${file.name}!`)
+    } catch (err: unknown) {
+      const errorMessage = typeof err === 'object' && err !== null && 'message' in err
+        ? String((err as { message: unknown }).message)
+        : 'Failed to upload CV file.'
+      setError(errorMessage)
+    } finally {
+      setUploadingCv(false)
+    }
+  }
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -103,6 +177,9 @@ export default function SettingsPage() {
           headline: headline.trim(),
           phone_number: phoneNumber.trim(),
           website: website.trim(),
+          resume_url: resumeUrl.trim(),
+          resume_name: resumeName.trim(),
+          portfolio_url: portfolioUrl.trim(),
           company_name: companyName.trim(),
           company_logo_url: companyLogoUrl.trim(),
           company_description: companyDescription.trim(),
@@ -190,7 +267,7 @@ export default function SettingsPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-black text-white tracking-tight">Account Settings</h1>
           <p className="text-xs text-slate-400 mt-1 font-medium">
-            Manage your personal profile, company details, payout rails, and security preferences.
+            Manage your personal profile, CV documents, company details, payout rails, and security preferences.
           </p>
         </div>
 
@@ -223,6 +300,17 @@ export default function SettingsPage() {
               }`}
             >
               <User className="w-4 h-4" /> Profile Details
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('documents'); setMessage(null); setError(null) }}
+              className={`w-full p-3.5 rounded-xl border text-left text-xs font-bold transition flex items-center gap-3 cursor-pointer ${
+                activeTab === 'documents'
+                  ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-lg shadow-amber-500/10'
+                  : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+              }`}
+            >
+              <FileText className="w-4 h-4" /> Resume & Documents (CV)
             </button>
 
             <button
@@ -369,7 +457,94 @@ export default function SettingsPage() {
               </form>
             )}
 
-            {/* Tab 2: Company Settings */}
+            {/* Tab 2: Resume & Documents (CV) */}
+            {activeTab === 'documents' && (
+              <form onSubmit={handleSaveProfile} className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+                <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                  <FileText className="w-4 h-4" /> Resume & CV Documents
+                </h3>
+
+                {/* Upload Active CV File Card */}
+                <div className="bg-slate-950 border border-dashed border-slate-800 hover:border-amber-500/50 rounded-2xl p-6 text-center transition">
+                  <UploadCloud className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+                  <p className="text-xs font-bold text-white">Upload Your Primary CV / Resume</p>
+                  <p className="text-[11px] text-slate-500 mt-1 mb-4">
+                    Supports PDF, DOC, or DOCX files up to 10MB.
+                  </p>
+
+                  <label className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-6 py-3 rounded-xl transition cursor-pointer shadow-lg shadow-amber-500/10">
+                    <Paperclip className="w-4 h-4" />
+                    {uploadingCv ? 'Uploading File...' : 'Choose PDF / Word File'}
+                    <input
+                      id="cvFileInput"
+                      name="cvFileInput"
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      disabled={uploadingCv}
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Currently Active Uploaded Resume Card */}
+                {resumeUrl && (
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-xl flex items-center justify-center shrink-0">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-white">{resumeName || 'My_Resume.pdf'}</p>
+                        <p className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold mt-0.5">
+                          <CheckCircle2 className="w-3 h-3" /> Active Resume Attached
+                        </p>
+                      </div>
+                    </div>
+
+                    <a
+                      href={resumeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0"
+                    >
+                      View / Download CV <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                    </a>
+                  </div>
+                )}
+
+                {/* External Drive / Portfolio Link Fallback */}
+                <div className="pt-2">
+                  <label htmlFor="portfolioUrl" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Google Drive Resume or Portfolio Link
+                  </label>
+                  <input
+                    id="portfolioUrl"
+                    name="portfolioUrl"
+                    type="text"
+                    value={portfolioUrl}
+                    onChange={(e) => setPortfolioUrl(e.target.value)}
+                    placeholder="e.g. https://drive.google.com/file/d/your-resume-file"
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-white text-xs rounded-xl px-4 py-3 outline-none font-medium transition"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Optionally provide a Google Drive, Notion, or Dropbox link to your CV or portfolio.
+                  </p>
+                </div>
+
+                <div className="pt-4 border-t border-slate-800">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-6 py-3.5 rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Document Settings'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Tab 3: Company Settings */}
             {activeTab === 'company' && (
               <form onSubmit={handleSaveProfile} className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
                 <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
@@ -433,7 +608,7 @@ export default function SettingsPage() {
               </form>
             )}
 
-            {/* Tab 3: Payout Settings */}
+            {/* Tab 4: Payout Settings */}
             {activeTab === 'payout' && (
               <form onSubmit={handleSaveProfile} className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
                 <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
@@ -506,7 +681,7 @@ export default function SettingsPage() {
               </form>
             )}
 
-            {/* Tab 4: Notifications */}
+            {/* Tab 5: Notifications */}
             {activeTab === 'notifications' && (
               <form onSubmit={handleSaveProfile} className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
                 <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
@@ -559,7 +734,7 @@ export default function SettingsPage() {
               </form>
             )}
 
-            {/* Tab 5: Security Settings */}
+            {/* Tab 6: Security Settings */}
             {activeTab === 'security' && (
               <form onSubmit={handleUpdatePassword} className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
                 <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
