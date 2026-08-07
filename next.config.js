@@ -4,10 +4,17 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   reactStrictMode: false,
 
-  // Disable Next 15 worker threads that cause heap overload
+  // 1. Disable Next 15 build worker threads (Keeps RAM under 1GB)
   experimental: {
     workerThreads: false,
     cpus: 1,
+  },
+
+  // 2. Disable heavy Webpack memory passes
+  webpack: (config) => {
+    config.cache = false;
+    config.parallelism = 1;
+    return config;
   },
 
   images: {
