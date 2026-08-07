@@ -1,19 +1,26 @@
 // src/components/ChatWindow.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useChat } from '../hooks/useChat';
 import { VideoCallModal } from './VideoCallModal';
+import { OfferCard } from './OfferCard';
+import { CreateOfferModal } from './CreateOfferModal';
+import { JobOffer } from '../types/negotiation';
 import { supabase } from '../lib/supabaseClient';
 
 interface ChatWindowProps {
   conversationId: string;
   currentUserId: string;
   recipientName: string;
+  jobId?: string;
+  recipientId?: string;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
   conversationId,
   currentUserId,
   recipientName,
+  jobId: initialJobId,
+  recipientId: initialRecipientId,
 }) => {
   const { messages, loading, error, sendMessage, uploadFile } = useChat(
     conversationId,
@@ -30,10 +37,73 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     isCaller: boolean;
   }>({ isOpen: false, isCaller: false });
 
+  // Offer Negotiation State
+  const [isOfferModalOpen, setIsOfferModalOpen] = useState<boolean>(false);
+  const [offers, setOffers] = useState<JobOffer[]>([]);
+  const [convMeta, setConvMeta] = useState<{
+    jobId: string;
+    employerId: string;
+    candidateId: string;
+  } | null>(null);
+
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, offers]);
+
+  // Fetch Conversation metadata and Job Offers
+  const fetchOffersAndMeta = useCallback(async () => {
+    // 1. Fetch metadata if not passed directly
+    const { data: convData } = await supabase
+      .from('conversations')
+      .select('job_id, employer_id, candidate_id')
+      .eq('id', conversationId)
+      .single();
+
+    if (convData) {
+      setConvMeta({
+        jobId: initialJobId || convData.job_id,
+        employerId: convData.employer_id,
+        candidateId: convData.candidate_id,
+      });
+    }
+
+    // 2. Fetch offers linked to this conversation
+    const { data: offersData } = await supabase
+      .from('job_offers')
+      .select('*, milestones:offer_milestones(*)')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true });
+
+    if (offersData) {
+      setOffers(offersData as any[]);
+    }
+  }, [conversationId, initialJobId]);
+
+  useEffect(() => {
+    fetchOffersAndMeta();
+
+    // Subscribe to realtime offer updates
+    const channel = supabase
+      .channel(`offers:${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'job_offers',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        () => {
+          fetchOffersAndMeta();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversationId, fetchOffersAndMeta]);
 
   // Listen for incoming call notifications
   useEffect(() => {
@@ -42,7 +112,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     channel
       .on('broadcast', { event: 'offer' }, ({ payload }) => {
         if (payload.senderId !== currentUserId) {
-          // Open call modal for receiver
           setActiveCall({ isOpen: true, isCaller: false });
         }
       })
@@ -87,11 +156,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   };
 
+  const isEmployer = convMeta?.employerId === currentUserId;
+  const recipientId =
+    initialRecipientId ||
+    (isEmployer ? convMeta?.candidateId : convMeta?.employerId) ||
+    '';
+
   if (loading) return <div className="p-4">Loading messages...</div>;
   if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
 
   return (
-    <div className="flex flex-col h-[600px] border rounded-lg bg-white shadow-sm relative">
+    <div className="flex flex-col h-[650px] border rounded-lg bg-white shadow-sm relative">
       {/* Video Call Overlay Modal */}
       {activeCall.isOpen && (
         <VideoCallModal
@@ -103,20 +178,59 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         />
       )}
 
-      {/* Chat Header with Video Call Button */}
-      <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-        <h3 className="font-semibold text-lg">Chat with {recipientName}</h3>
+      {/* Create Offer Modal */}
+      {isOfferModalOpen && convMeta && (
+        <CreateOfferModal
+          conversationId={conversationId}
+          jobId={convMeta.jobId}
+          employerId={convMeta.employerId}
+          candidateId={convMeta.candidateId}
+          onClose={() => setIsOfferModalOpen(false)}
+          onOfferCreated={() => fetchOffersAndMeta()}
+        />
+      )}
 
-        <button
-          onClick={handleStartCall}
-          className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm transition-colors"
-        >
-          📹 Start Video Call
-        </button>
+      {/* Chat Header */}
+      <div className="p-4 border-b bg-gray-50 flex justify-between items-center gap-2">
+        <h3 className="font-semibold text-base md:text-lg truncate">
+          Chat with {recipientName}
+        </h3>
+
+        <div className="flex items-center gap-2">
+          {/* Make Custom Offer Button (Visible to Employers) */}
+          {isEmployer && (
+            <button
+              onClick={() => setIsOfferModalOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm transition-colors"
+            >
+              💼 Make Offer
+            </button>
+          )}
+
+          {/* Video Call Button */}
+          <button
+            onClick={handleStartCall}
+            className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm transition-colors"
+          >
+            📹 Call
+          </button>
+        </div>
       </div>
 
-      {/* Messages List */}
+      {/* Messages & Active Offers List */}
       <div className="flex-1 p-4 overflow-y-auto space-y-3">
+        {/* Render Official Offers inside the conversation flow */}
+        {offers.map((offer) => (
+          <div key={offer.id} className="flex justify-center my-2">
+            <OfferCard
+              offer={offer}
+              currentUserId={currentUserId}
+              onStatusChange={() => fetchOffersAndMeta()}
+            />
+          </div>
+        ))}
+
+        {/* Render Regular Chat Messages */}
         {messages.map((msg) => {
           const isMe = msg.sender_id === currentUserId;
           return (
