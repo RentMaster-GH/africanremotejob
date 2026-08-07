@@ -143,7 +143,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-amber-500 selection:text-slate-950">
       
-      {/* Inline Navigation Bar with Support Us (₵1) Button */}
+      {/* Inline Navigation Bar */}
       <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 py-4 px-4 sm:px-8 flex items-center justify-between">
         <Link href="/" className="font-black text-xl text-white tracking-tight flex items-center gap-2">
           <span className="bg-amber-500 text-slate-950 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black">A</span>
@@ -163,7 +163,7 @@ export default function HomePage() {
             Sign In
           </Link>
           <Link href="/post-job" className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-4 sm:px-5 py-2 rounded-xl transition shadow-lg shadow-amber-500/10 cursor-pointer">
-            + Post a Job ($50)
+            + Post a Job ($20)
           </Link>
         </div>
       </nav>
@@ -193,16 +193,22 @@ export default function HomePage() {
           </p>
 
           {/* Action CTAs */}
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap">
             <a
               href="#search-toolbar"
-              className="w-full sm:w-auto bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm px-8 py-4 rounded-xl transition shadow-xl shadow-amber-500/10 flex items-center justify-center gap-2"
+              className="w-full sm:w-auto bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm px-8 py-4 rounded-xl transition shadow-xl shadow-amber-500/10 flex items-center justify-center gap-2 cursor-pointer"
             >
               <Briefcase className="w-4 h-4" /> Find Remote Jobs
             </a>
             <Link
+              href="/post-job"
+              className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white border border-slate-700 font-bold text-sm px-8 py-4 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Globe className="w-4 h-4 text-amber-400" /> Post a Job ($20)
+            </Link>
+            <Link
               href="/donate"
-              className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 font-bold text-sm px-8 py-4 rounded-xl transition flex items-center justify-center gap-2"
+              className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 font-bold text-sm px-8 py-4 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <Heart className="w-4 h-4 text-rose-500 fill-rose-500" /> Support Us (₵1)
             </Link>
@@ -328,8 +334,8 @@ export default function HomePage() {
                     <p className="text-[11px] text-slate-500 mt-0.5">{cat.count}</p>
                   </div>
                 </button>
-              )}
-            )}
+              )
+            })}
           </div>
         </div>
 
