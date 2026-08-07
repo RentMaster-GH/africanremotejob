@@ -23,7 +23,7 @@ export default function KYCVerificationPage() {
   const [user, setUser] = useState<any>(null)
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
-  const [idType, setIdType] = useState('Ghana Card / National ID')
+  const [idType, setIdType] = useState('National ID')
   const [idNumber, setIdNumber] = useState('')
   const [documentUrl, setDocumentUrl] = useState('')
   
@@ -262,7 +262,7 @@ export default function KYCVerificationPage() {
                   onChange={(e) => setIdType(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-300 text-xs rounded-xl px-3.5 py-3 outline-none font-bold cursor-pointer"
                 >
-                  <option value="Ghana Card / National ID">Ghana Card / National ID</option>
+                  <option value="National ID">National ID</option>
                   <option value="International Passport">International Passport</option>
                   <option value="Drivers License">Driver's License</option>
                   <option value="Voter ID Card">Voter ID Card</option>
@@ -307,7 +307,7 @@ export default function KYCVerificationPage() {
                 />
               </div>
               <p className="text-[11px] text-slate-500 mt-1">
-                Upload a clear photo of the front of your Ghana Card, Passport, or Driver's License.
+                Upload a clear photo of the front of your National ID, Passport, or Driver's License.
               </p>
             </div>
 
