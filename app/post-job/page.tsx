@@ -39,7 +39,7 @@ export default function PostJobPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  // PUBLISH TO DATABASE ONLY AFTER PAYSTACK CONFIRMS $20 PAYMENT
+  // PUBLISH TO DATABASE ONLY AFTER PAYSTACK CONFIRMS PAYMENT
   const publishJobToDatabase = async (paymentRef: string) => {
     try {
       const { error: insertError } = await supabase
@@ -100,24 +100,24 @@ export default function PostJobPage() {
       : 'employer@africanremotejob.com'
 
     const reference = 'JOB-' + Math.floor(Math.random() * 1000000000 + 1)
-    const jobPostingFeeUSD = 20 // $20 Flat Rate
+    const jobPostingFeeGHS = 300 // GH₵300 (~ $20 USD equivalent)
 
     // Check if Paystack Gateway SDK is loaded in browser
     if (typeof window !== 'undefined' && (window as any).PaystackPop && paystackPublicKey) {
-      // PROMPT EMPLOYER WITH PAYSTACK GATEWAY FOR $20 PAYMENT
+      // PROMPT EMPLOYER WITH PAYSTACK GATEWAY IN GHS (Supported by all Paystack Merchants)
       const handler = (window as any).PaystackPop.setup({
         key: paystackPublicKey,
         email: payerEmail,
-        amount: jobPostingFeeUSD * 100, // $20.00 USD in cents (2000)
-        currency: 'USD',
+        amount: jobPostingFeeGHS * 100, // GH₵300.00 in pesewas (30000)
+        currency: 'GHS',
         ref: reference,
         callback: function (response: any) {
-          // PAYMENT OF $20 RECEIVED! NOW PUBLISH THE JOB LISTING
+          // PAYMENT RECEIVED! NOW PUBLISH THE JOB LISTING
           publishJobToDatabase(response.reference || reference)
         },
         onClose: function () {
           setLoading(false)
-          setError('Payment gateway was closed before completing the $20 fee. Job listing was not published.')
+          setError('Payment gateway was closed before completing the fee. Job listing was not published.')
         },
       })
       handler.openIframe()
@@ -153,9 +153,9 @@ export default function PostJobPage() {
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
             <span>Reach 50,000+ Vetted African Professionals</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Post a Remote Job ($20)</h1>
+          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Post a Remote Job</h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-2 font-medium max-w-lg mx-auto">
-            Fill out job details below and complete the <span className="text-amber-400 font-bold">$20 flat rate payment</span> to publish your listing live.
+            Fill out job details below and complete the <span className="text-amber-400 font-bold">GH₵300 (~$20 USD) payment</span> to publish your listing live.
           </p>
         </div>
 
@@ -167,7 +167,7 @@ export default function PostJobPage() {
             <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-2xl p-4 mb-8 flex items-start gap-3">
               <CheckCircle2 className="w-5 h-5 shrink-0" />
               <div>
-                <p className="font-bold text-sm">$20 Payment Received & Job Published!</p>
+                <p className="font-bold text-sm">Payment Received & Job Published!</p>
                 <p className="mt-0.5 text-emerald-300/80">Redirecting you to the live homepage feed...</p>
               </div>
             </div>
@@ -454,8 +454,8 @@ export default function PostJobPage() {
                     <CreditCard className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-white">Job Posting Fee: $20.00 USD</p>
-                    <p className="text-[11px] text-slate-400">Checkout powered by Paystack Gateway</p>
+                    <p className="text-xs font-bold text-white">Job Posting Fee: GH₵300 (~$20 USD)</p>
+                    <p className="text-[11px] text-slate-400">Checkout powered by Paystack Gateway (Card & MoMo)</p>
                   </div>
                 </div>
                 <div className="text-xs text-emerald-400 font-bold flex items-center gap-1">
@@ -469,16 +469,16 @@ export default function PostJobPage() {
                 className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm py-4 rounded-xl transition shadow-xl shadow-amber-500/10 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {loading ? (
-                  'Prompting $20 Paystack Gateway...'
+                  'Prompting Paystack Gateway...'
                 ) : (
                   <>
-                    Publish Remote Job Listing ($20) <Send className="w-4 h-4" />
+                    💳 Pay GH₵300 & Publish Remote Job <Send className="w-4 h-4" />
                   </>
                 )}
               </button>
               
               <p className="text-[11px] text-slate-500 text-center font-medium">
-                Clicking the button opens the Paystack Gateway popup for the $20 fee. Your listing will go live as soon as payment is confirmed [10, 11].
+                Clicking the button opens the Paystack Gateway popup for Card & Mobile Money. Your listing will go live as soon as payment is confirmed.
               </p>
             </div>
 
