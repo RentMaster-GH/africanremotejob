@@ -16,7 +16,8 @@ import {
   Building2, 
   Sparkles,
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  Flag
 } from 'lucide-react'
 
 interface Job {
@@ -91,7 +92,6 @@ export default function JobDetailPage({ params }: PageProps) {
       if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
         targetUrl = `https://${targetUrl}`
       }
-      // Redirects to application URL in the same window
       window.location.href = targetUrl
     }
   }
@@ -138,7 +138,7 @@ export default function JobDetailPage({ params }: PageProps) {
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         
-        {/* Back Link & Share */}
+        {/* Back Link, Report & Share Bar */}
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={() => router.back()}
@@ -147,13 +147,22 @@ export default function JobDetailPage({ params }: PageProps) {
             <ArrowLeft className="w-4 h-4" /> Back to Listings
           </button>
           
-          <button
-            onClick={handleShare}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-300 bg-slate-900 border border-slate-800 hover:border-slate-700 px-3.5 py-2 rounded-xl transition cursor-pointer"
-          >
-            <Share2 className="w-3.5 h-3.5 text-amber-400" />
-            {copied ? 'Link Copied!' : 'Share Role'}
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/report?item=${job.id}&title=${encodeURIComponent(job.title)}`}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/30 hover:bg-rose-500/20 px-3.5 py-2 rounded-xl transition cursor-pointer"
+            >
+              <Flag className="w-3.5 h-3.5 text-rose-400" /> Report Misconduct
+            </Link>
+
+            <button
+              onClick={handleShare}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-300 bg-slate-900 border border-slate-800 hover:border-slate-700 px-3.5 py-2 rounded-xl transition cursor-pointer"
+            >
+              <Share2 className="w-3.5 h-3.5 text-amber-400" />
+              {copied ? 'Link Copied!' : 'Share Role'}
+            </button>
+          </div>
         </div>
 
         {/* Header Card */}
