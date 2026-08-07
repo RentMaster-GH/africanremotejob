@@ -11,10 +11,7 @@ import {
   Upload, 
   CheckCircle2, 
   AlertCircle, 
-  Clock, 
-  Sparkles,
-  ArrowRight,
-  ShieldAlert
+  Clock
 } from 'lucide-react'
 
 export default function KYCVerificationPage() {
