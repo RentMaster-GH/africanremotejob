@@ -218,6 +218,8 @@ export default function PostJobPage() {
                     <option value="Full-time">Full-time</option>
                     <option value="Part-time">Part-time</option>
                     <option value="Contract">Contract</option>
+                    <option value="Project-Based (Deadline)">Project-Based (Deadline / Deliverable)</option>
+                    <option value="Milestone-Based">Milestone / Task-Based</option>
                   </select>
                 </div>
 

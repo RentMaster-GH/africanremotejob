@@ -238,10 +238,12 @@ export default function HomePage() {
                 onChange={(e) => setJobTypeFilter(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 text-slate-300 text-xs rounded-xl px-3.5 py-3 outline-none font-bold cursor-pointer focus:border-amber-500"
               >
-                <option value="All">All Types (Full-time, Contract, Gig)</option>
+                <option value="All">All Types (Full-time, Contract, Project, Milestone)</option>
                 <option value="Full-time">Full-time</option>
                 <option value="Part-time">Part-time</option>
                 <option value="Contract">Contract</option>
+                <option value="Project-Based (Deadline)">Project-Based (Deadline / Deliverable)</option>
+                <option value="Milestone-Based">Milestone / Task-Based</option>
               </select>
             </div>
 

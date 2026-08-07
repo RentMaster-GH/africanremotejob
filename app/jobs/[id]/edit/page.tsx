@@ -12,7 +12,11 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Save, 
-  ArrowLeft
+  ArrowLeft,
+  Send,
+  HelpCircle,
+  Mail,
+  ExternalLink
 } from 'lucide-react'
 
 interface PageProps {
@@ -96,13 +100,18 @@ export default function EditJobPage({ params }: PageProps) {
           location_restriction: locationRestriction,
           salary_min: salaryMin ? Number(salaryMin) : null,
           salary_max: salaryMax ? Number(salaryMax) : null,
+          currency: 'USD',
           application_url_or_email: applicationUrlOrEmail.trim(),
           description: description.trim(),
           is_featured: isFeatured,
         })
         .eq('id', jobId)
 
-      if (updateError) throw updateError
+      if (updateError) {
+        setError(updateError.message || 'Failed to update job listing.')
+        setSaving(false)
+        return
+      }
 
       setSuccess(true)
       setTimeout(() => {
@@ -133,7 +142,7 @@ export default function EditJobPage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-amber-500 selection:text-slate-950">
       
-      {/* Nav */}
+      {/* Navigation Bar */}
       <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 py-4 px-4 sm:px-8 flex items-center justify-between">
         <Link href="/" className="font-black text-xl text-white tracking-tight flex items-center gap-2">
           <span className="bg-amber-500 text-slate-950 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black">A</span>
@@ -145,6 +154,8 @@ export default function EditJobPage({ params }: PageProps) {
       </nav>
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-10">
+        
+        {/* Header */}
         <div className="text-center mb-10">
           <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Edit Job Listing</h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-2 font-medium">
@@ -152,8 +163,10 @@ export default function EditJobPage({ params }: PageProps) {
           </p>
         </div>
 
+        {/* Form Container */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-10 shadow-2xl backdrop-blur-xl">
           
+          {/* Success Banner */}
           {success && (
             <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-2xl p-4 mb-8 flex items-start gap-3">
               <CheckCircle2 className="w-5 h-5 shrink-0" />
@@ -164,6 +177,7 @@ export default function EditJobPage({ params }: PageProps) {
             </div>
           )}
 
+          {/* Error Banner */}
           {error && (
             <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-2xl p-4 mb-8 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 shrink-0" />
@@ -175,172 +189,240 @@ export default function EditJobPage({ params }: PageProps) {
           )}
 
           <form onSubmit={handleUpdateJob} className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            
+            {/* Section 1: Company & Role Details */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                <Building2 className="w-4 h-4" /> Company & Role Details
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="companyName" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Company Name *
+                  </label>
+                  <input
+                    id="companyName"
+                    name="companyName"
+                    type="text"
+                    required
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-white text-xs rounded-xl px-4 py-3 outline-none font-medium transition"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="jobTitle" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Job Title *
+                  </label>
+                  <input
+                    id="jobTitle"
+                    name="jobTitle"
+                    type="text"
+                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-white text-xs rounded-xl px-4 py-3 outline-none font-medium transition"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Category & Specifications */}
+            <div className="space-y-4 pt-4 border-t border-slate-800/80">
+              <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                <Briefcase className="w-4 h-4" /> Category & Specifications
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label htmlFor="category" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Category *
+                  </label>
+                  <select
+                    id="category"
+                    name="category"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-300 text-xs rounded-xl px-3.5 py-3 outline-none font-bold cursor-pointer"
+                  >
+                    <option value="Software Engineering">Software Engineering</option>
+                    <option value="Design & Creative">Design & Creative</option>
+                    <option value="Virtual Assistance">Virtual Assistance</option>
+                    <option value="Product & Marketing">Product & Marketing</option>
+                    <option value="Customer Support">Customer Support</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="jobType" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Job Type *
+                  </label>
+                  <select
+                    id="jobType"
+                    name="jobType"
+                    value={jobType}
+                    onChange={(e) => setJobType(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-300 text-xs rounded-xl px-3.5 py-3 outline-none font-bold cursor-pointer"
+                  >
+                    <option value="Full-time">Full-time</option>
+                    <option value="Part-time">Part-time</option>
+                    <option value="Contract">Contract</option>
+                    <option value="Project-Based (Deadline)">Project-Based (Deadline / Deliverable)</option>
+                    <option value="Milestone-Based">Milestone / Task-Based</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="experienceLevel" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Experience Level *
+                  </label>
+                  <select
+                    id="experienceLevel"
+                    name="experienceLevel"
+                    value={experienceLevel}
+                    onChange={(e) => setExperienceLevel(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-300 text-xs rounded-xl px-3.5 py-3 outline-none font-bold cursor-pointer"
+                  >
+                    <option value="Entry-level">Entry-level</option>
+                    <option value="Mid-level">Mid-level</option>
+                    <option value="Senior">Senior</option>
+                    <option value="Executive">Executive</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Location & Salary */}
+            <div className="space-y-4 pt-4 border-t border-slate-800/80">
+              <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                <Globe className="w-4 h-4" /> Location & Compensation
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label htmlFor="locationRestriction" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Location / Timezone *
+                  </label>
+                  <select
+                    id="locationRestriction"
+                    name="locationRestriction"
+                    value={locationRestriction}
+                    onChange={(e) => setLocationRestriction(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-300 text-xs rounded-xl px-3.5 py-3 outline-none font-bold cursor-pointer"
+                  >
+                    <option value="Africa (GMT / WAT)">Africa (GMT / WAT Overlap)</option>
+                    <option value="Worldwide">Worldwide Remote</option>
+                    <option value="West Africa Only">West Africa Only</option>
+                    <option value="East Africa Only">East Africa Only</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="salaryMin" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Min Salary (USD / yr)
+                  </label>
+                  <input
+                    id="salaryMin"
+                    name="salaryMin"
+                    type="number"
+                    value={salaryMin}
+                    onChange={(e) => setSalaryMin(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-white text-xs rounded-xl px-4 py-3 outline-none font-medium transition"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="salaryMax" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Max Salary (USD / yr)
+                  </label>
+                  <input
+                    id="salaryMax"
+                    name="salaryMax"
+                    type="number"
+                    value={salaryMax}
+                    onChange={(e) => setSalaryMax(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-white text-xs rounded-xl px-4 py-3 outline-none font-medium transition"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 4: Application URL or Email + Guidance Card */}
+            <div className="space-y-4 pt-4 border-t border-slate-800/80">
+              <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                <Send className="w-4 h-4" /> Application Link or Email
+              </h3>
+
+              {/* Employer Guidance Help Card */}
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 sm:p-5 text-xs text-slate-300 space-y-2.5">
+                <div className="flex items-center gap-2 font-bold text-amber-400 text-xs uppercase tracking-wider">
+                  <HelpCircle className="w-4 h-4 text-amber-500" />
+                  <span>Employer Best Practice Guidance</span>
+                </div>
+                <p className="leading-relaxed text-slate-300 font-medium">
+                  When applicants click <strong className="text-white">"Apply for this role"</strong>, they will be redirected to the value you enter below. You must enter either:
+                </p>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
+                    <p className="font-bold text-amber-400 text-[11px] flex items-center gap-1.5 mb-1">
+                      <ExternalLink className="w-3.5 h-3.5" /> A Real Live Form / Career URL
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-mono space-y-0.5">
+                      <span>• https://forms.google.com/your-form</span><br />
+                      <span>• https://typeform.com/your-form</span><br />
+                      <span>• https://yourcompany.com/careers</span>
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
+                    <p className="font-bold text-amber-400 text-[11px] flex items-center gap-1.5 mb-1">
+                      <Mail className="w-3.5 h-3.5" /> A Valid Email Address
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-mono">
+                      <span>• careers@yourcompany.com</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div>
-                <label htmlFor="companyName" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Company Name *
+                <label htmlFor="applicationUrlOrEmail" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Application URL or Email Address *
                 </label>
                 <input
-                  id="companyName"
-                  name="companyName"
+                  id="applicationUrlOrEmail"
+                  name="applicationUrlOrEmail"
                   type="text"
                   required
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
+                  value={applicationUrlOrEmail}
+                  onChange={(e) => setApplicationUrlOrEmail(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-white text-xs rounded-xl px-4 py-3 outline-none font-medium transition"
                 />
               </div>
+            </div>
 
+            {/* Section 5: Description */}
+            <div className="space-y-4 pt-4 border-t border-slate-800/80">
               <div>
-                <label htmlFor="jobTitle" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Job Title *
+                <label htmlFor="description" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Job Description *
                 </label>
-                <input
-                  id="jobTitle"
-                  name="jobTitle"
-                  type="text"
+                <textarea
+                  id="description"
+                  name="description"
+                  rows={6}
                   required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-white text-xs rounded-xl px-4 py-3 outline-none font-medium transition"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-white text-xs rounded-xl p-4 outline-none font-medium transition leading-relaxed"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label htmlFor="category" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Category *
-                </label>
-                <select
-                  id="category"
-                  name="category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-300 text-xs rounded-xl px-3.5 py-3 outline-none font-bold cursor-pointer"
-                >
-                  <option value="Software Engineering">Software Engineering</option>
-                  <option value="Design & Creative">Design & Creative</option>
-                  <option value="Virtual Assistance">Virtual Assistance</option>
-                  <option value="Product & Marketing">Product & Marketing</option>
-                  <option value="Customer Support">Customer Support</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="jobType" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Job Type *
-                </label>
-                <select
-                  id="jobType"
-                  name="jobType"
-                  value={jobType}
-                  onChange={(e) => setJobType(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-300 text-xs rounded-xl px-3.5 py-3 outline-none font-bold cursor-pointer"
-                >
-                  <option value="Full-time">Full-time</option>
-                  <option value="Part-time">Part-time</option>
-                  <option value="Contract">Contract</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="experienceLevel" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Experience Level *
-                </label>
-                <select
-                  id="experienceLevel"
-                  name="experienceLevel"
-                  value={experienceLevel}
-                  onChange={(e) => setExperienceLevel(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-300 text-xs rounded-xl px-3.5 py-3 outline-none font-bold cursor-pointer"
-                >
-                  <option value="Entry-level">Entry-level</option>
-                  <option value="Mid-level">Mid-level</option>
-                  <option value="Senior">Senior</option>
-                  <option value="Executive">Executive</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label htmlFor="locationRestriction" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Location / Timezone *
-                </label>
-                <select
-                  id="locationRestriction"
-                  name="locationRestriction"
-                  value={locationRestriction}
-                  onChange={(e) => setLocationRestriction(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-300 text-xs rounded-xl px-3.5 py-3 outline-none font-bold cursor-pointer"
-                >
-                  <option value="Africa (GMT / WAT)">Africa (GMT / WAT Overlap)</option>
-                  <option value="Worldwide">Worldwide Remote</option>
-                  <option value="West Africa Only">West Africa Only</option>
-                  <option value="East Africa Only">East Africa Only</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="salaryMin" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Min Salary (USD / yr)
-                </label>
-                <input
-                  id="salaryMin"
-                  name="salaryMin"
-                  type="number"
-                  value={salaryMin}
-                  onChange={(e) => setSalaryMin(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-white text-xs rounded-xl px-4 py-3 outline-none font-medium transition"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="salaryMax" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Max Salary (USD / yr)
-                </label>
-                <input
-                  id="salaryMax"
-                  name="salaryMax"
-                  type="number"
-                  value={salaryMax}
-                  onChange={(e) => setSalaryMax(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-white text-xs rounded-xl px-4 py-3 outline-none font-medium transition"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="applicationUrlOrEmail" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Application URL or Email Address *
-              </label>
-              <input
-                id="applicationUrlOrEmail"
-                name="applicationUrlOrEmail"
-                type="text"
-                required
-                value={applicationUrlOrEmail}
-                onChange={(e) => setApplicationUrlOrEmail(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-white text-xs rounded-xl px-4 py-3 outline-none font-medium transition"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="description" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Job Description *
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                rows={6}
-                required
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-white text-xs rounded-xl p-4 outline-none font-medium transition leading-relaxed"
-              />
-            </div>
-
+            {/* Section 6: Featured Checkbox */}
             <div className="pt-2">
               <label className="flex items-center gap-3 bg-slate-950 border border-slate-800 p-4 rounded-xl cursor-pointer hover:border-amber-500/50 transition">
                 <input
@@ -359,6 +441,7 @@ export default function EditJobPage({ params }: PageProps) {
               </label>
             </div>
 
+            {/* Submit Button */}
             <div className="pt-4 border-t border-slate-800 flex items-center justify-between gap-4">
               <button
                 type="button"
@@ -384,8 +467,11 @@ export default function EditJobPage({ params }: PageProps) {
             </div>
 
           </form>
+
         </div>
+
       </div>
+
     </div>
   )
 }
