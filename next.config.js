@@ -3,13 +3,12 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   reactStrictMode: false,
 
-  // 1. DISABLE WEBPACK RAM CACHING (Saves ~2GB of build memory)
+  // Disable Webpack RAM Caching during build
   webpack: (config) => {
     config.cache = false;
     return config;
   },
 
-  // 2. Disable heavy build-time checks
   typescript: {
     ignoreBuildErrors: true,
   },
