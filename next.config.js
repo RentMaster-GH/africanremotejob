@@ -1,14 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Disable memory-heavy browser source maps in production
   productionBrowserSourceMaps: false,
+  reactStrictMode: false,
 
-  // Prevent Next.js 15 from spawning multiple RAM-heavy build workers
-  experimental: {
-    webpackBuildWorker: false,
+  // 1. DISABLE WEBPACK RAM CACHING (Saves ~2GB of build memory)
+  webpack: (config) => {
+    config.cache = false;
+    return config;
   },
 
-  // Skip ESLint and TypeScript checks during build to save memory
+  // 2. Disable heavy build-time checks
   typescript: {
     ignoreBuildErrors: true,
   },
