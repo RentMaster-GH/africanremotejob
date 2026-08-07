@@ -91,7 +91,8 @@ export default function JobDetailPage({ params }: PageProps) {
       if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
         targetUrl = `https://${targetUrl}`
       }
-      window.open(targetUrl, '_blank', 'noopener,noreferrer')
+      // Redirects to application URL in the same window
+      window.location.href = targetUrl
     }
   }
 
@@ -111,7 +112,7 @@ export default function JobDetailPage({ params }: PageProps) {
         <p className="text-slate-400 text-xs mt-1 mb-6">This listing may have expired or been removed.</p>
         <Link
           href="/"
-          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-6 py-3 rounded-xl transition"
+          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-6 py-3 rounded-xl transition cursor-pointer"
         >
           Back to Job Board
         </Link>
@@ -129,7 +130,7 @@ export default function JobDetailPage({ params }: PageProps) {
           African Remote Jobs
         </Link>
         <div className="flex items-center gap-4">
-          <Link href="/" className="text-xs font-bold text-slate-400 hover:text-white transition">
+          <Link href="/" className="text-xs font-bold text-slate-400 hover:text-white transition cursor-pointer">
             ← All Listings
           </Link>
         </div>
@@ -210,7 +211,7 @@ export default function JobDetailPage({ params }: PageProps) {
           <div className="mt-8 pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-xs text-slate-400 flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-slate-500" />
-              Posted on {new Date(job.created_at).toLocaleDateString()}
+              Posted on {job.created_at ? new Date(job.created_at).toLocaleDateString() : 'Recently'}
             </div>
 
             <button
