@@ -1,17 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   productionBrowserSourceMaps: false,
   reactStrictMode: false,
 
-  // Disable Image Build Worker Overhead
-  images: {
-    unoptimized: true,
+  // Disable Next 15 worker threads that cause heap overload
+  experimental: {
+    workerThreads: false,
+    cpus: 1,
   },
 
-  // Disable Webpack RAM Caching
-  webpack: (config) => {
-    config.cache = false;
-    return config;
+  images: {
+    unoptimized: true,
   },
 
   typescript: {
