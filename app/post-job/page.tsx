@@ -39,10 +39,34 @@ export default function PostJobPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  // PUBLISH TO DATABASE ONLY AFTER PAYSTACK CONFIRMS PAYMENT
-  const publishJobToDatabase = async (paymentRef: string) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+
+    if (!title || !companyName || !applicationUrlOrEmail || !description) {
+      setError('Please fill in all required fields marked with *.')
+      return
+    }
+
+    setLoading(true)
+
+    const paystackPublicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
+    if (!paystackPublicKey) {
+      setError('Paystack Public Key is missing. Please add NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY in Vercel Environment Variables.')
+      setLoading(false)
+      return
+    }
+
+    const payerEmail = applicationUrlOrEmail.includes('@') 
+      ? applicationUrlOrEmail.trim() 
+      : 'employer@africanremotejob.com'
+
+    const reference = 'JOB-' + Math.floor(Math.random() * 1000000000 + 1)
+    const jobPostingFeeGHS = 300 // GH₵300 (~ $20 USD equivalent)
+
     try {
-      const { error: insertError } = await supabase
+      // 1. SAVE DRAFT JOB TO SUPABASE FIRST BEFORE PAYSTACK OPENING
+      const { data: job, error: insertError } = await supabase
         .from('jobs')
         .insert([
           {
@@ -58,72 +82,62 @@ export default function PostJobPage() {
             application_url_or_email: applicationUrlOrEmail.trim(),
             description: description.trim(),
             is_featured: isFeatured,
-            is_paid: true,
-            payment_ref: paymentRef,
+            is_paid: false, // Will become true after payment webhook
+            status: 'draft', // Will become 'paid_pending_approval' after payment
+            payment_ref: reference,
           },
         ])
+        .select()
+        .single()
 
-      if (insertError) {
-        setError(insertError.message || 'Payment received, but failed to record job. Please contact support.')
+      if (insertError || !job) {
+        setError(insertError?.message || 'Failed to save job draft. Please try again.')
         setLoading(false)
         return
       }
 
-      setSuccess(true)
-      setTimeout(() => {
-        router.push('/')
-        router.refresh()
-      }, 1500)
-    } catch (err: unknown) {
-      const errorMessage = typeof err === 'object' && err !== null && 'message' in err 
-        ? String((err as { message: unknown }).message)
-        : 'Payment received, but failed to record job listing.'
-      setError(errorMessage)
-      setLoading(false)
-    }
-  }
+      // 2. LAUNCH PAYSTACK WITH job_id PASSED IN METADATA
+      if (typeof window !== 'undefined' && (window as any).PaystackPop) {
+        const handler = (window as any).PaystackPop.setup({
+          key: paystackPublicKey,
+          email: payerEmail,
+          amount: jobPostingFeeGHS * 100, // GH₵300.00 in pesewas (30000)
+          currency: 'GHS',
+          ref: reference,
+          metadata: {
+            job_id: job.id, // 👈 CRUCIAL: Links payment to Supabase job ID
+          },
+          callback: async function (response: any) {
+            // Frontend fallback update in case webhook is delayed
+            await supabase
+              .from('jobs')
+              .update({ 
+                is_paid: true, 
+                status: 'paid_pending_approval',
+                payment_ref: response.reference || reference 
+              })
+              .eq('id', job.id)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
+            setSuccess(true)
+            setLoading(false)
+            setTimeout(() => {
+              router.push('/')
+              router.refresh()
+            }, 2000)
+          },
+          onClose: function () {
+            setLoading(false)
+            setError('Payment gateway was closed. Your job was saved as a draft.')
+          },
+        })
+        handler.openIframe()
+      } else {
+        setError('Paystack SDK failed to load. Please refresh the page and try again.')
+        setLoading(false)
+      }
 
-    if (!title || !companyName || !applicationUrlOrEmail || !description) {
-      setError('Please fill in all required fields marked with *.')
-      return
-    }
-
-    setLoading(true)
-
-    const paystackPublicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
-    const payerEmail = applicationUrlOrEmail.includes('@') 
-      ? applicationUrlOrEmail.trim() 
-      : 'employer@africanremotejob.com'
-
-    const reference = 'JOB-' + Math.floor(Math.random() * 1000000000 + 1)
-    const jobPostingFeeGHS = 300 // GH₵300 (~ $20 USD equivalent)
-
-    // Check if Paystack Gateway SDK is loaded in browser
-    if (typeof window !== 'undefined' && (window as any).PaystackPop && paystackPublicKey) {
-      // PROMPT EMPLOYER WITH PAYSTACK GATEWAY IN GHS (Supported by all Paystack Merchants)
-      const handler = (window as any).PaystackPop.setup({
-        key: paystackPublicKey,
-        email: payerEmail,
-        amount: jobPostingFeeGHS * 100, // GH₵300.00 in pesewas (30000)
-        currency: 'GHS',
-        ref: reference,
-        callback: function (response: any) {
-          // PAYMENT RECEIVED! NOW PUBLISH THE JOB LISTING
-          publishJobToDatabase(response.reference || reference)
-        },
-        onClose: function () {
-          setLoading(false)
-          setError('Payment gateway was closed before completing the fee. Job listing was not published.')
-        },
-      })
-      handler.openIframe()
-    } else {
-      // Fallback in case NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY is not set on Vercel yet
-      setError('Paystack Public Key is missing. Please add NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY in Vercel Environment Variables to enable $20 checkout prompts.')
+    } catch (err: any) {
+      setError(err?.message || 'An unexpected error occurred.')
       setLoading(false)
     }
   }
@@ -167,8 +181,8 @@ export default function PostJobPage() {
             <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-2xl p-4 mb-8 flex items-start gap-3">
               <CheckCircle2 className="w-5 h-5 shrink-0" />
               <div>
-                <p className="font-bold text-sm">Payment Received & Job Published!</p>
-                <p className="mt-0.5 text-emerald-300/80">Redirecting you to the live homepage feed...</p>
+                <p className="font-bold text-sm">Payment Received & Submitted!</p>
+                <p className="mt-0.5 text-emerald-300/80">Your job post is submitted for review and will be live shortly...</p>
               </div>
             </div>
           )}
@@ -355,7 +369,6 @@ export default function PostJobPage() {
                 <Send className="w-4 h-4" /> Application Link or Email
               </h3>
 
-              {/* Employer Guidance Help Card */}
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 sm:p-5 text-xs text-slate-300 space-y-2.5">
                 <div className="flex items-center gap-2 font-bold text-amber-400 text-xs uppercase tracking-wider">
                   <HelpCircle className="w-4 h-4 text-amber-500" />
