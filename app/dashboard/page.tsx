@@ -50,6 +50,7 @@ export default function DashboardPage() {
       const { data, error: authError } = await supabase.auth.getUser()
 
       if (authError || !data?.user) {
+        console.error('Dashboard Auth Check Failed:', authError)
         router.push('/login')
         return
       }
