@@ -105,7 +105,7 @@ export default function PostJobPage() {
           currency: 'GHS',
           ref: reference,
           metadata: {
-            job_id: job.id, // 👈 CRUCIAL: Links payment to Supabase job ID
+            job_id: job.id, // Links payment to Supabase job ID
           },
           callback: async function (response: any) {
             // Frontend fallback update in case webhook is delayed
@@ -120,8 +120,10 @@ export default function PostJobPage() {
 
             setSuccess(true)
             setLoading(false)
+            
+            // 🔑 REDIRECT TO EMPLOYER DASHBOARD INSTEAD OF HOMEPAGE
             setTimeout(() => {
-              router.push('/')
+              router.push('/dashboard')
               router.refresh()
             }, 2000)
           },
@@ -154,8 +156,9 @@ export default function PostJobPage() {
           <span className="bg-amber-500 text-slate-950 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black">A</span>
           African Remote Jobs
         </Link>
-        <Link href="/" className="text-xs font-bold text-slate-400 hover:text-white transition">
-          ← Back to Listings
+        {/* 🔑 UPDATED BACK BUTTON TO DASHBOARD */}
+        <Link href="/dashboard" className="text-xs font-bold text-slate-400 hover:text-white transition">
+          ← Back to Dashboard
         </Link>
       </nav>
 
@@ -182,7 +185,7 @@ export default function PostJobPage() {
               <CheckCircle2 className="w-5 h-5 shrink-0" />
               <div>
                 <p className="font-bold text-sm">Payment Received & Submitted!</p>
-                <p className="mt-0.5 text-emerald-300/80">Your job post is submitted for review and will be live shortly...</p>
+                <p className="mt-0.5 text-emerald-300/80">Redirecting you to your Employer Dashboard...</p>
               </div>
             </div>
           )}
