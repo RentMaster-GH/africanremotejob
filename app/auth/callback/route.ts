@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -7,38 +8,50 @@ export async function GET(request: Request) {
   const next = searchParams.get('next') ?? '/dashboard'
 
   if (code) {
-    const response = NextResponse.redirect(`${origin}${next}`)
+    const cookieStore = await cookies()
 
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder',
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           getAll() {
-            return request.headers.get('cookie')?.split(';').map(cookie => {
-              const [name, ...rest] = cookie.trim().split('=')
-              return { name, value: rest.join('=') }
-            }) ?? []
+            return cookieStore.getAll()
           },
           setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              response.cookies.set(name, value, {
-                ...options,
-                maxAge: 60 * 60 * 24 * 365, // 1 Year persistent login session
-                sameSite: 'lax',
-                path: '/',
-              })
-            })
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              )
+            } catch {
+              // The `setAll` method was called from a Server Component.
+              // This can be ignored if middleware is refreshing sessions.
+            }
           },
         },
       }
     )
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
+
     if (!error) {
-      return response
+      // Correctly handle reverse-proxies / custom domains (africanremotejob.com)
+      const forwardedHost = request.headers.get('x-forwarded-host')
+      const isLocalEnv = process.env.NODE_ENV === 'development'
+
+      if (isLocalEnv) {
+        return NextResponse.redirect(`${origin}${next}`)
+      } else if (forwardedHost) {
+        return NextResponse.redirect(`https://${forwardedHost}${next}`)
+      } else {
+        return NextResponse.redirect(`${origin}${next}`)
+      }
     }
+
+    // IMPORTANT: Log the error so you can see why it failed in Vercel logs / terminal!
+    console.error('Supabase auth callback error:', error)
   }
 
-  return NextResponse.redirect(`${origin}/login`)
+  // If there's an error or no code, redirect to login with an error query param
+  return NextResponse.redirect(`${origin}/login?error=auth_failed`)
 }
