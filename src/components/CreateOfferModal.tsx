@@ -1,7 +1,8 @@
-// src/components/CreateOfferModal.tsx
+'use client'
+
 import React, { useState } from 'react';
 import { JobType, Milestone } from '../types/negotiation';
-import { supabase } from '../lib/supabaseClient';
+import { backend } from '../lib/backend';
 
 interface CreateOfferModalProps {
   conversationId: string;
@@ -47,51 +48,52 @@ export const CreateOfferModal: React.FC<CreateOfferModalProps> = ({
     try {
       setSubmitting(true);
 
-      // 1. Insert Job Offer
-      const { data: offerData, error: offerError } = await supabase
-        .from('job_offers')
-        .insert([
-          {
-            conversation_id: conversationId,
-            job_id: jobId,
-            employer_id: employerId,
-            candidate_id: candidateId,
-            job_type: jobType,
-            proposed_amount: proposedAmount,
-            currency: currency,
-            deadline: deadline || null,
-            terms_description: terms,
-            status: 'pending',
-          },
-        ])
-        .select()
-        .single();
+      const validMilestones =
+        jobType === 'milestone-based'
+          ? milestones.filter((m) => m.title.trim())
+          : [];
 
-      if (offerError) throw offerError;
+      // 1. Insert Job Offer into custom backend
+      const offerData = await backend.create('job_offers', {
+        conversation_id: conversationId,
+        job_id: jobId,
+        employer_id: employerId,
+        candidate_id: candidateId,
+        job_type: jobType,
+        proposed_amount: proposedAmount,
+        currency,
+        deadline: deadline || null,
+        terms_description: terms,
+        milestones: validMilestones,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+      });
 
-      // 2. Insert Milestones if milestone-based
-      if (jobType === 'milestone-based' && milestones.length > 0) {
-        const milestonePayload = milestones.map((m) => ({
-          offer_id: offerData.id,
-          title: m.title,
-          amount: m.amount,
-        }));
-        await supabase.from('offer_milestones').insert(milestonePayload);
+      // 2. Insert individual milestone records if milestone-based
+      if (validMilestones.length > 0 && offerData?.id) {
+        await Promise.all(
+          validMilestones.map((m) =>
+            backend.create('offer_milestones', {
+              offer_id: offerData.id,
+              title: m.title,
+              amount: m.amount,
+            })
+          )
+        );
       }
 
       // 3. Trigger Chat Message notification
-      await supabase.from('messages').insert([
-        {
-          conversation_id: conversationId,
-          sender_id: employerId,
-          content: `💼 SENT AN OFFICIAL OFFER: ${currency} ${proposedAmount} (${jobType})`,
-        },
-      ]);
+      await backend.create('messages', {
+        conversation_id: conversationId,
+        sender_id: employerId,
+        content: `💼 SENT AN OFFICIAL OFFER: ${currency} ${proposedAmount} (${jobType})`,
+        created_at: new Date().toISOString(),
+      });
 
       onOfferCreated();
       onClose();
     } catch (err: any) {
-      alert('Failed to send offer: ' + err.message);
+      alert('Failed to send offer: ' + (err?.message || 'Unexpected error'));
     } finally {
       setSubmitting(false);
     }
@@ -109,7 +111,7 @@ export const CreateOfferModal: React.FC<CreateOfferModalProps> = ({
             <select
               value={jobType}
               onChange={(e) => setJobType(e.target.value as JobType)}
-              className="w-full border rounded-lg p-2 text-sm"
+              className="w-full border rounded-lg p-2 text-sm text-gray-900"
             >
               <option value="full-time">Full-Time (Monthly Salary)</option>
               <option value="part-time">Part-Time (Monthly/Hourly)</option>
@@ -127,7 +129,7 @@ export const CreateOfferModal: React.FC<CreateOfferModalProps> = ({
                 type="number"
                 value={proposedAmount}
                 onChange={(e) => setProposedAmount(Number(e.target.value))}
-                className="w-full border rounded-lg p-2 text-sm font-bold"
+                className="w-full border rounded-lg p-2 text-sm font-bold text-gray-900"
                 required
               />
             </div>
@@ -136,11 +138,12 @@ export const CreateOfferModal: React.FC<CreateOfferModalProps> = ({
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
-                className="w-full border rounded-lg p-2 text-sm"
+                className="w-full border rounded-lg p-2 text-sm text-gray-900"
               >
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
                 <option value="GBP">GBP (£)</option>
+                <option value="GHS">GHS (₵)</option>
                 <option value="NGN">NGN (₦)</option>
                 <option value="KES">KES (KSh)</option>
                 <option value="ZAR">ZAR (R)</option>
@@ -156,7 +159,7 @@ export const CreateOfferModal: React.FC<CreateOfferModalProps> = ({
                 type="date"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
-                className="w-full border rounded-lg p-2 text-sm"
+                className="w-full border rounded-lg p-2 text-sm text-gray-900"
               />
             </div>
           )}
@@ -182,7 +185,7 @@ export const CreateOfferModal: React.FC<CreateOfferModalProps> = ({
                     placeholder="Milestone Title"
                     value={m.title}
                     onChange={(e) => handleMilestoneChange(idx, 'title', e.target.value)}
-                    className="flex-1 border rounded p-1.5 text-xs"
+                    className="flex-1 border rounded p-1.5 text-xs text-gray-900"
                     required
                   />
                   <input
@@ -190,7 +193,7 @@ export const CreateOfferModal: React.FC<CreateOfferModalProps> = ({
                     placeholder="Amount"
                     value={m.amount}
                     onChange={(e) => handleMilestoneChange(idx, 'amount', Number(e.target.value))}
-                    className="w-24 border rounded p-1.5 text-xs font-bold"
+                    className="w-24 border rounded p-1.5 text-xs font-bold text-gray-900"
                     required
                   />
                 </div>
@@ -206,7 +209,7 @@ export const CreateOfferModal: React.FC<CreateOfferModalProps> = ({
               value={terms}
               onChange={(e) => setTerms(e.target.value)}
               placeholder="Specify deliverable expectations or negotiation notes..."
-              className="w-full border rounded-lg p-2 text-sm"
+              className="w-full border rounded-lg p-2 text-sm text-gray-900"
             />
           </div>
 
@@ -214,14 +217,14 @@ export const CreateOfferModal: React.FC<CreateOfferModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border rounded-lg text-xs font-semibold"
+              className="px-4 py-2 border rounded-lg text-xs font-semibold text-gray-700"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-50"
             >
               {submitting ? 'Sending...' : 'Send Official Offer'}
             </button>
@@ -231,3 +234,5 @@ export const CreateOfferModal: React.FC<CreateOfferModalProps> = ({
     </div>
   );
 };
+
+export default CreateOfferModal;
