@@ -3,21 +3,19 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase/client'
-import { 
-  HelpCircle, 
-  Send, 
-  CheckCircle2, 
-  AlertCircle, 
-  ArrowLeft, 
-  Mail,
-  User,
-  Sparkles
+import { backend } from '@/lib/backend'
+import {
+  HelpCircle,
+  Send,
+  CheckCircle2,
+  AlertCircle,
+  ArrowLeft,
+  Sparkles,
 } from 'lucide-react'
 
 export default function CustomerSupportPage() {
   const router = useRouter()
-  
+
   const [userName, setUserName] = useState('')
   const [userEmail, setUserEmail] = useState('')
   const [category, setCategory] = useState('General Inquiry')
@@ -33,10 +31,14 @@ export default function CustomerSupportPage() {
   }, [])
 
   const loadUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      setUserEmail(user.email || '')
-      setUserName(user.user_metadata?.full_name || '')
+    try {
+      const user = await backend.getMe()
+      if (user) {
+        setUserEmail(user.email || '')
+        setUserName(user.full_name || user.name || '')
+      }
+    } catch {
+      // Guest user submitting support inquiry
     }
   }
 
@@ -46,32 +48,31 @@ export default function CustomerSupportPage() {
     setSubmitting(true)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      let userId: string | null = null
+      try {
+        const user = await backend.getMe()
+        userId = user?.id || null
+      } catch {
+        userId = null
+      }
 
-      const { error: insertError } = await supabase
-        .from('support_tickets')
-        .insert([
-          {
-            user_id: user?.id || null,
-            user_email: userEmail.trim(),
-            user_name: userName.trim(),
-            category,
-            subject: subject.trim(),
-            message: message.trim(),
-            status: 'open',
-          },
-        ])
-
-      if (insertError) throw insertError
+      await backend.create('support_tickets', {
+        user_id: userId,
+        user_email: userEmail.trim(),
+        user_name: userName.trim(),
+        category,
+        subject: subject.trim(),
+        message: message.trim(),
+        status: 'open',
+      })
 
       setSuccess(true)
       setTimeout(() => {
         router.push('/dashboard')
       }, 2000)
     } catch (err: unknown) {
-      const errorMessage = typeof err === 'object' && err !== null && 'message' in err
-        ? String((err as { message: unknown }).message)
-        : 'Failed to submit support ticket.'
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to submit support ticket.'
       setError(errorMessage)
     } finally {
       setSubmitting(false)
@@ -80,8 +81,6 @@ export default function CustomerSupportPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-amber-500 selection:text-slate-950">
-      
-      {/* Header */}
       <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 py-4 px-4 sm:px-8 flex items-center justify-between">
         <Link href="/" className="font-black text-xl text-white tracking-tight flex items-center gap-2">
           <span className="bg-amber-500 text-slate-950 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black">A</span>
@@ -93,8 +92,6 @@ export default function CustomerSupportPage() {
       </nav>
 
       <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-10">
-        
-        {/* Banner */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-1.5 bg-slate-900 border border-amber-500/30 text-amber-400 text-xs font-extrabold px-3.5 py-1.5 rounded-full shadow-lg mb-4 backdrop-blur-md">
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -216,9 +213,7 @@ export default function CustomerSupportPage() {
             </form>
           )}
         </div>
-
       </div>
-
     </div>
   )
 }
