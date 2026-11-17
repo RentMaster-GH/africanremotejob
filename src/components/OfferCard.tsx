@@ -1,7 +1,7 @@
 // src/components/OfferCard.tsx
 import React, { useState } from 'react';
 import { JobOffer, OfferStatus } from '../types/negotiation';
-import { supabase } from '../lib/supabaseClient';
+import { backend } from '@/lib/backend';
 
 interface OfferCardProps {
   offer: JobOffer;
@@ -20,25 +20,18 @@ export const OfferCard: React.FC<OfferCardProps> = ({
   const handleUpdateStatus = async (newStatus: OfferStatus) => {
     try {
       setLoading(true);
-      const { error } = await supabase
-        .from('job_offers')
-        .update({ status: newStatus })
-        .eq('id', offer.id);
-
-      if (error) throw error;
+      await backend.update('job_offers', offer.id, { status: newStatus });
 
       // Send automated chat message about status change
-      await supabase.from('messages').insert([
-        {
-          conversation_id: offer.conversation_id,
-          sender_id: currentUserId,
-          content: `📋 Offer status updated to: ${newStatus.toUpperCase()}`,
-        },
-      ]);
+      await backend.create('messages', {
+        conversation_id: offer.conversation_id,
+        sender_id: currentUserId,
+        content: `📋 Offer status updated to: ${newStatus.toUpperCase()}`,
+      });
 
       onStatusChange();
     } catch (err: any) {
-      alert('Error updating offer: ' + err.message);
+      alert('Error updating offer: ' + (err?.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
