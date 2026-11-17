@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase/client'
+import { backend } from '@/lib/backend'
 import { 
   Briefcase, 
   Globe, 
@@ -59,14 +59,10 @@ export default function JobDetailPage({ params }: PageProps) {
   const fetchJobDetails = async (idToFetch: string) => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('jobs')
-        .select('*')
-        .eq('id', idToFetch)
-        .single()
-
-      if (!error && data) {
-        setJob(data as unknown as Job)
+      const records = await backend.list('jobs')
+      const matched = (records || []).find((item: any) => String(item.id) === String(idToFetch))
+      if (matched) {
+        setJob(matched as Job)
       }
     } catch (err) {
       console.error('Failed to fetch job details:', err)
@@ -122,8 +118,6 @@ export default function JobDetailPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-amber-500 selection:text-slate-950">
-      
-      {/* Navigation */}
       <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 py-4 px-4 sm:px-8 flex items-center justify-between">
         <Link href="/" className="font-black text-xl text-white tracking-tight flex items-center gap-2">
           <span className="bg-amber-500 text-slate-950 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black">A</span>
@@ -137,8 +131,6 @@ export default function JobDetailPage({ params }: PageProps) {
       </nav>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-        
-        {/* Back Link, Report & Share Bar */}
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={() => router.back()}
@@ -165,7 +157,6 @@ export default function JobDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Header Card */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl mb-8 relative overflow-hidden">
           {job.is_featured && (
             <div className="absolute top-0 right-0 bg-amber-500 text-slate-950 text-[10px] font-black uppercase px-4 py-1 rounded-bl-2xl flex items-center gap-1">
@@ -216,7 +207,6 @@ export default function JobDetailPage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Action CTA Bar inside header */}
           <div className="mt-8 pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-xs text-slate-400 flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-slate-500" />
@@ -232,10 +222,7 @@ export default function JobDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* Main Description */}
           <div className="lg:col-span-8 space-y-6">
             <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl">
               <h3 className="text-lg font-extrabold text-white mb-4 flex items-center gap-2">
@@ -247,7 +234,6 @@ export default function JobDetailPage({ params }: PageProps) {
               </div>
             </div>
 
-            {/* Bottom Apply Box */}
             <div className="bg-gradient-to-r from-amber-500/10 via-slate-900 to-slate-900 border border-amber-500/30 rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
               <div>
                 <h4 className="text-lg font-black text-white">Ready to join {job.company_name || 'this team'}?</h4>
@@ -263,10 +249,7 @@ export default function JobDetailPage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Sidebar Info */}
           <div className="lg:col-span-4 space-y-6">
-            
-            {/* Company Profile Card */}
             <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl">
               <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
                 <Building2 className="w-4 h-4 text-amber-500" /> About the Employer
@@ -283,7 +266,6 @@ export default function JobDetailPage({ params }: PageProps) {
               </div>
             </div>
 
-            {/* Trust Badge Card */}
             <div className="bg-slate-900/50 border border-slate-800/80 rounded-3xl p-6">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl flex items-center justify-center shrink-0">
@@ -298,11 +280,8 @@ export default function JobDetailPage({ params }: PageProps) {
                 Employers on this platform are verified for reliable cross-border payments matching local African financial rails.
               </p>
             </div>
-
           </div>
-
         </div>
-
       </div>
     </div>
   )
