@@ -4,13 +4,13 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Script from 'next/script'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase/client'
-import { 
-  Briefcase, 
-  Building2, 
-  Globe, 
-  Sparkles, 
-  CheckCircle2, 
+import { backend } from '@/lib/backend'
+import {
+  Briefcase,
+  Building2,
+  Globe,
+  Sparkles,
+  CheckCircle2,
   AlertCircle,
   Send,
   HelpCircle,
@@ -22,7 +22,7 @@ import {
 
 export default function PostJobPage() {
   const router = useRouter()
-  
+
   const [title, setTitle] = useState('')
   const [companyName, setCompanyName] = useState('')
   const [category, setCategory] = useState('Software Engineering')
@@ -57,71 +57,58 @@ export default function PostJobPage() {
       return
     }
 
-    const payerEmail = applicationUrlOrEmail.includes('@') 
-      ? applicationUrlOrEmail.trim() 
+    const payerEmail = applicationUrlOrEmail.includes('@')
+      ? applicationUrlOrEmail.trim()
       : 'employer@africanremotejob.com'
 
     const reference = 'JOB-' + Math.floor(Math.random() * 1000000000 + 1)
-    const jobPostingFeeGHS = 300 // GH₵300 (~ $20 USD equivalent)
+    const jobPostingFeeGHS = 300
 
     try {
-      // 1. SAVE DRAFT JOB TO SUPABASE FIRST BEFORE PAYSTACK OPENING
-      const { data: job, error: insertError } = await supabase
-        .from('jobs')
-        .insert([
-          {
-            title: title.trim(),
-            company_name: companyName.trim(),
-            category,
-            job_type: jobType,
-            experience_level: experienceLevel,
-            location_restriction: locationRestriction,
-            salary_min: salaryMin ? Number(salaryMin) : null,
-            salary_max: salaryMax ? Number(salaryMax) : null,
-            currency: 'USD',
-            application_url_or_email: applicationUrlOrEmail.trim(),
-            description: description.trim(),
-            is_featured: isFeatured,
-            is_paid: false, // Will become true after payment webhook
-            status: 'draft', // Will become 'paid_pending_approval' after payment
-            payment_ref: reference,
-          },
-        ])
-        .select()
-        .single()
+      const job = await backend.create('jobs', {
+        title: title.trim(),
+        company_name: companyName.trim(),
+        category,
+        job_type: jobType,
+        experience_level: experienceLevel,
+        location_restriction: locationRestriction,
+        salary_min: salaryMin ? Number(salaryMin) : null,
+        salary_max: salaryMax ? Number(salaryMax) : null,
+        currency: 'USD',
+        application_url_or_email: applicationUrlOrEmail.trim(),
+        description: description.trim(),
+        is_featured: isFeatured,
+        is_paid: false,
+        status: 'draft',
+        payment_ref: reference,
+      })
 
-      if (insertError || !job) {
-        setError(insertError?.message || 'Failed to save job draft. Please try again.')
+      if (!job || !job.id) {
+        setError('Failed to save job draft. Please try again.')
         setLoading(false)
         return
       }
 
-      // 2. LAUNCH PAYSTACK WITH job_id PASSED IN METADATA
       if (typeof window !== 'undefined' && (window as any).PaystackPop) {
         const handler = (window as any).PaystackPop.setup({
           key: paystackPublicKey,
           email: payerEmail,
-          amount: jobPostingFeeGHS * 100, // GH₵300.00 in pesewas (30000)
+          amount: jobPostingFeeGHS * 100,
           currency: 'GHS',
           ref: reference,
           metadata: {
-            job_id: job.id, // Links payment to Supabase job ID
+            job_id: job.id,
           },
           callback: async function (response: any) {
-            // Frontend fallback update in case webhook is delayed
-            await supabase
-              .from('jobs')
-              .update({ 
-                is_paid: true, 
-                status: 'paid_pending_approval',
-                payment_ref: response.reference || reference 
-              })
-              .eq('id', job.id)
+            await backend.update('jobs', job.id, {
+              is_paid: true,
+              status: 'paid_pending_approval',
+              payment_ref: response.reference || reference,
+            })
 
             setSuccess(true)
             setLoading(false)
-            
-            // 🔑 REDIRECT TO EMPLOYER DASHBOARD INSTEAD OF HOMEPAGE
+
             setTimeout(() => {
               router.push('/dashboard')
               router.refresh()
@@ -137,7 +124,6 @@ export default function PostJobPage() {
         setError('Paystack SDK failed to load. Please refresh the page and try again.')
         setLoading(false)
       }
-
     } catch (err: any) {
       setError(err?.message || 'An unexpected error occurred.')
       setLoading(false)
@@ -146,25 +132,19 @@ export default function PostJobPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-amber-500 selection:text-slate-950">
-      
-      {/* Paystack Inline SDK */}
       <Script src="https://js.paystack.co/v1/inline.js" strategy="lazyOnload" />
 
-      {/* Navigation Bar */}
       <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 py-4 px-4 sm:px-8 flex items-center justify-between">
         <Link href="/" className="font-black text-xl text-white tracking-tight flex items-center gap-2">
           <span className="bg-amber-500 text-slate-950 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black">A</span>
           African Remote Jobs
         </Link>
-        {/* 🔑 UPDATED BACK BUTTON TO DASHBOARD */}
         <Link href="/dashboard" className="text-xs font-bold text-slate-400 hover:text-white transition">
           ← Back to Dashboard
         </Link>
       </nav>
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-10">
-        
-        {/* Header */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-1.5 bg-slate-900 border border-amber-500/30 text-amber-400 text-xs font-extrabold px-3.5 py-1.5 rounded-full shadow-lg mb-4 backdrop-blur-md">
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -176,10 +156,7 @@ export default function PostJobPage() {
           </p>
         </div>
 
-        {/* Form Container */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-10 shadow-2xl backdrop-blur-xl">
-          
-          {/* Success Banner */}
           {success && (
             <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-2xl p-4 mb-8 flex items-start gap-3">
               <CheckCircle2 className="w-5 h-5 shrink-0" />
@@ -190,7 +167,6 @@ export default function PostJobPage() {
             </div>
           )}
 
-          {/* Error Banner */}
           {error && (
             <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-2xl p-4 mb-8 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 shrink-0" />
@@ -202,8 +178,6 @@ export default function PostJobPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {/* Section 1: Company & Role Details */}
             <div className="space-y-4">
               <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
                 <Building2 className="w-4 h-4" /> Company & Role Details
@@ -244,7 +218,6 @@ export default function PostJobPage() {
               </div>
             </div>
 
-            {/* Section 2: Category & Specifications */}
             <div className="space-y-4 pt-4 border-t border-slate-800/80">
               <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
                 <Briefcase className="w-4 h-4" /> Category & Specifications
@@ -309,7 +282,6 @@ export default function PostJobPage() {
               </div>
             </div>
 
-            {/* Section 3: Location & Salary */}
             <div className="space-y-4 pt-4 border-t border-slate-800/80">
               <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
                 <Globe className="w-4 h-4" /> Location & Compensation
@@ -366,7 +338,6 @@ export default function PostJobPage() {
               </div>
             </div>
 
-            {/* Section 4: Application URL or Email + Guidance Card */}
             <div className="space-y-4 pt-4 border-t border-slate-800/80">
               <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
                 <Send className="w-4 h-4" /> Application Link or Email
@@ -380,7 +351,7 @@ export default function PostJobPage() {
                 <p className="leading-relaxed text-slate-300 font-medium">
                   When applicants click <strong className="text-white">"Apply for this role"</strong>, they will be redirected to the value you enter below. You must enter either:
                 </p>
-                
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
                     <p className="font-bold text-amber-400 text-[11px] flex items-center gap-1.5 mb-1">
@@ -421,7 +392,6 @@ export default function PostJobPage() {
               </div>
             </div>
 
-            {/* Section 5: Description */}
             <div className="space-y-4 pt-4 border-t border-slate-800/80">
               <div>
                 <label htmlFor="description" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
@@ -440,7 +410,6 @@ export default function PostJobPage() {
               </div>
             </div>
 
-            {/* Section 6: Featured Sponsor Checkbox */}
             <div className="pt-2">
               <label className="flex items-center gap-3 bg-slate-950 border border-slate-800 p-4 rounded-xl cursor-pointer hover:border-amber-500/50 transition">
                 <input
@@ -462,7 +431,6 @@ export default function PostJobPage() {
               </label>
             </div>
 
-            {/* Section 7: Paystack Payment & Publish Button */}
             <div className="pt-4 border-t border-slate-800 space-y-3">
               <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -492,18 +460,14 @@ export default function PostJobPage() {
                   </>
                 )}
               </button>
-              
+
               <p className="text-[11px] text-slate-500 text-center font-medium">
                 Clicking the button opens the Paystack Gateway popup for Card & Mobile Money. Your listing will go live as soon as payment is confirmed.
               </p>
             </div>
-
           </form>
-
         </div>
-
       </div>
-
     </div>
   )
 }
