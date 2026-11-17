@@ -1,6 +1,7 @@
-// src/components/VideoCallModal.tsx
+'use client'
+
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { backend } from '@/lib/backend';
 
 interface VideoCallModalProps {
   conversationId: string;
@@ -28,6 +29,8 @@ export const VideoCallModal: React.FC<VideoCallModalProps> = ({
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const processedSignalIdsRef = useRef<Set<string>>(new Set());
+  const remoteDescSetRef = useRef<boolean>(false);
 
   const [callStatus, setCallStatus] = useState<string>(
     isCaller ? 'Calling...' : 'Incoming Call...'
@@ -35,120 +38,137 @@ export const VideoCallModal: React.FC<VideoCallModalProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isVideoOff, setIsVideoOff] = useState<boolean>(false);
 
-  // Helper to safely end call and stop media tracks
+  const sendSignal = useCallback(
+    async (event: string, payload: Record<string, any>) => {
+      try {
+        await backend.create('call_signals', {
+          conversation_id: conversationId,
+          sender_id: currentUserId,
+          event,
+          payload,
+          timestamp: Date.now(),
+        });
+      } catch (err) {
+        console.error('Failed to send call signal:', err);
+      }
+    },
+    [conversationId, currentUserId]
+  );
+
   const handleEndCall = useCallback(() => {
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
     }
     if (pcRef.current) {
       pcRef.current.close();
+      pcRef.current = null;
     }
     onClose();
   }, [onClose]);
 
   useEffect(() => {
+    let isMounted = true;
+    const mountTime = Date.now() - 10000;
     const pc = new RTCPeerConnection(ICE_SERVERS);
     pcRef.current = pc;
 
-    const channel = supabase.channel(`call:${conversationId}`);
-
-    // 1. Get Camera/Microphone media stream
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        localStreamRef.current = stream;
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-
-        // Add stream tracks to WebRTC peer connection
-        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-      })
-      .catch((err) => {
-        console.error('Media access error:', err);
-        alert('Could not access camera/microphone.');
-        onClose();
-      });
-
-    // 2. Handle incoming remote video stream
     pc.ontrack = (event) => {
       if (remoteVideoRef.current && event.streams[0]) {
         remoteVideoRef.current.srcObject = event.streams[0];
-        setCallStatus('Connected');
+        if (isMounted) setCallStatus('Connected');
       }
     };
 
-    // 3. Handle ICE Candidates (network routing)
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        channel.send({
-          type: 'broadcast',
-          event: 'ice-candidate',
-          payload: { candidate: event.candidate, senderId: currentUserId },
+        sendSignal('ice-candidate', {
+          candidate: event.candidate.toJSON ? event.candidate.toJSON() : event.candidate,
         });
       }
     };
 
-    // 4. Listen for signaling events via Supabase Broadcast
-    channel
-      .on('broadcast', { event: 'offer' }, async ({ payload }) => {
-        if (payload.senderId !== currentUserId) {
-          await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
+    navigator.mediaDevices
+      .getUserMedia({ video: true, audio: true })
+      .then(async (stream) => {
+        if (!isMounted) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        localStreamRef.current = stream;
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
-          channel.send({
-            type: 'broadcast',
-            event: 'answer',
-            payload: { sdp: answer, senderId: currentUserId },
-          });
-        }
-      })
-      .on('broadcast', { event: 'answer' }, async ({ payload }) => {
-        if (payload.senderId !== currentUserId) {
-          await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-        }
-      })
-      .on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
-        if (payload.senderId !== currentUserId && payload.candidate) {
-          try {
-            await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-          } catch (e) {
-            console.error('Error adding ICE candidate', e);
-          }
-        }
-      })
-      .on('broadcast', { event: 'end-call' }, ({ payload }) => {
-        if (payload.senderId !== currentUserId) {
-          handleEndCall();
-        }
-      })
-      .subscribe(async (status) => {
-        // If caller, create and send WebRTC Offer
-        if (status === 'SUBSCRIBED' && isCaller) {
+        if (isCaller) {
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
-
-          channel.send({
-            type: 'broadcast',
-            event: 'offer',
-            payload: { sdp: offer, senderId: currentUserId },
-          });
+          await sendSignal('offer', { sdp: offer });
+        }
+      })
+      .catch((err) => {
+        console.error('Media access error:', err);
+        if (isMounted) {
+          alert('Could not access camera/microphone.');
+          onClose();
         }
       });
 
+    const pollInterval = setInterval(async () => {
+      if (!isMounted || !pcRef.current) return;
+      try {
+        const res = await backend.list('call_signals');
+        const records = Array.isArray(res) ? res : res?.records || [];
+        const signals = records
+          .filter(
+            (s: any) =>
+              s.conversation_id === conversationId &&
+              s.sender_id !== currentUserId &&
+              (s.timestamp || 0) >= mountTime &&
+              !processedSignalIdsRef.current.has(s.id)
+          )
+          .sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0));
+
+        for (const sig of signals) {
+          processedSignalIdsRef.current.add(sig.id);
+
+          if (sig.event === 'offer' && !isCaller && sig.payload?.sdp) {
+            await pc.setRemoteDescription(new RTCSessionDescription(sig.payload.sdp));
+            remoteDescSetRef.current = true;
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            await sendSignal('answer', { sdp: answer });
+          } else if (sig.event === 'answer' && isCaller && sig.payload?.sdp) {
+            if (!remoteDescSetRef.current) {
+              await pc.setRemoteDescription(new RTCSessionDescription(sig.payload.sdp));
+              remoteDescSetRef.current = true;
+            }
+          } else if (sig.event === 'ice-candidate' && sig.payload?.candidate) {
+            if (remoteDescSetRef.current) {
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(sig.payload.candidate));
+              } catch (e) {
+                console.error('Error adding ICE candidate:', e);
+              }
+            }
+          } else if (sig.event === 'end-call') {
+            handleEndCall();
+          }
+        }
+      } catch (err) {
+        console.error('Error polling call signals:', err);
+      }
+    }, 1500);
+
     return () => {
-      channel.send({
-        type: 'broadcast',
-        event: 'end-call',
-        payload: { senderId: currentUserId },
-      });
-      supabase.removeChannel(channel);
+      isMounted = false;
+      clearInterval(pollInterval);
+      sendSignal('end-call', {});
       handleEndCall();
     };
-  }, [conversationId, currentUserId, isCaller, handleEndCall, onClose]);
+  }, [conversationId, currentUserId, isCaller, handleEndCall, onClose, sendSignal]);
 
-  // Toggle Mute Audio
   const toggleMute = () => {
     if (localStreamRef.current) {
       const audioTrack = localStreamRef.current.getAudioTracks()[0];
@@ -159,7 +179,6 @@ export const VideoCallModal: React.FC<VideoCallModalProps> = ({
     }
   };
 
-  // Toggle Mute Video
   const toggleVideo = () => {
     if (localStreamRef.current) {
       const videoTrack = localStreamRef.current.getVideoTracks()[0];
@@ -177,9 +196,7 @@ export const VideoCallModal: React.FC<VideoCallModalProps> = ({
         <p className="text-sm text-gray-300">{callStatus}</p>
       </div>
 
-      {/* Video Screens Container */}
       <div className="relative w-full max-w-4xl h-[450px] bg-gray-900 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center">
-        {/* Remote Video (Large) */}
         <video
           ref={remoteVideoRef}
           autoPlay
@@ -187,7 +204,6 @@ export const VideoCallModal: React.FC<VideoCallModalProps> = ({
           className="w-full h-full object-cover"
         />
 
-        {/* Local Video (Small Overlay) */}
         <div className="absolute bottom-4 right-4 w-36 h-48 bg-gray-800 rounded-xl overflow-hidden border-2 border-white shadow-lg">
           <video
             ref={localVideoRef}
@@ -199,7 +215,6 @@ export const VideoCallModal: React.FC<VideoCallModalProps> = ({
         </div>
       </div>
 
-      {/* Controls Bar */}
       <div className="flex gap-4 mt-6">
         <button
           onClick={toggleMute}
@@ -229,3 +244,5 @@ export const VideoCallModal: React.FC<VideoCallModalProps> = ({
     </div>
   );
 };
+
+export default VideoCallModal;
