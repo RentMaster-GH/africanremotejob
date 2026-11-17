@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase/client'
+import { backend } from '@/lib/backend'
 import { 
   Search, 
   DollarSign, 
@@ -36,6 +36,7 @@ interface Job {
   application_url_or_email: string
   is_featured: boolean
   is_verified?: boolean
+  status?: string
   company_name?: string
   created_at: string
 }
@@ -59,7 +60,6 @@ export default function HomePage() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
   
-  // Search & Filter States
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [jobTypeFilter, setJobTypeFilter] = useState('All')
@@ -72,17 +72,15 @@ export default function HomePage() {
   const fetchJobs = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('jobs')
-        .select('*')
-        .order('is_featured', { ascending: false })
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Supabase Query Error:', error)
-      } else if (data) {
-        setJobs(data as unknown as Job[])
-      }
+      const records = await backend.list('jobs')
+      const list = Array.isArray(records) ? records : (records?.records || records?.data || [])
+      const approved = (list as Job[])
+        .filter((j) => !j.status || j.status === 'approved')
+        .sort((a, b) => {
+          if (a.is_featured !== b.is_featured) return a.is_featured ? -1 : 1
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        })
+      setJobs(approved)
     } catch (err) {
       console.error('Failed to fetch jobs:', err)
     } finally {
@@ -91,7 +89,6 @@ export default function HomePage() {
   }
 
   const handleChipClick = (chip: string) => {
-    // Reset other filters so quick tags don't conflict
     setSelectedCategory('All')
     setJobTypeFilter('All')
     setTimezoneFilter('All')
@@ -170,14 +167,10 @@ export default function HomePage() {
 
       {/* Hero Header Section */}
       <div className="relative overflow-hidden bg-slate-950 border-b border-slate-800/80 py-16 sm:py-24 px-4 sm:px-6 lg:px-8">
-        
-        {/* Ambient Glow Effects */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-amber-500/5 blur-3xl pointer-events-none rounded-full" />
         <div className="absolute top-1/3 left-10 w-72 h-72 bg-indigo-500/5 blur-3xl pointer-events-none rounded-full" />
 
         <div className="relative max-w-5xl mx-auto text-center">
-          
-          {/* Top Badge */}
           <div className="inline-flex items-center gap-2 bg-slate-900 border border-amber-500/30 text-amber-400 text-xs font-extrabold px-4 py-2 rounded-full shadow-lg mb-6 backdrop-blur-md">
             <Sparkles className="w-4 h-4 text-amber-500" />
             <span>African Remote Talent • Global & Local Currencies</span>
@@ -192,7 +185,6 @@ export default function HomePage() {
             Connect with top global companies hiring African software developers, designers, virtual assistants, and remote specialists.
           </p>
 
-          {/* Action CTAs */}
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap">
             <a
               href="#search-toolbar"
@@ -213,18 +205,15 @@ export default function HomePage() {
               <Heart className="w-4 h-4 text-rose-500 fill-rose-500" /> Support Us (₵1)
             </Link>
           </div>
-
         </div>
       </div>
 
       {/* Main Content Area */}
       <div id="search-toolbar" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10">
         
-        {/* Sleek Multi-Filter Search Toolbar */}
+        {/* Multi-Filter Search Toolbar */}
         <div className="bg-slate-900/90 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-2xl backdrop-blur-xl mb-6">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
-            
-            {/* Main Input */}
             <div className="lg:col-span-6 flex items-center bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 focus-within:border-amber-500 transition">
               <Search className="w-5 h-5 text-amber-500 shrink-0 mr-3" />
               <input 
@@ -246,7 +235,6 @@ export default function HomePage() {
               )}
             </div>
 
-            {/* Filter 1: Job Type */}
             <div className="lg:col-span-3">
               <select
                 id="jobTypeFilter"
@@ -264,7 +252,6 @@ export default function HomePage() {
               </select>
             </div>
 
-            {/* Filter 2: Timezone */}
             <div className="lg:col-span-3">
               <select
                 id="timezoneFilter"
@@ -278,10 +265,8 @@ export default function HomePage() {
                 <option value="Worldwide">🌍 Worldwide Remote</option>
               </select>
             </div>
-
           </div>
 
-          {/* Quick Filter Chips */}
           <div className="flex items-center gap-2 flex-wrap mt-4 pt-4 border-t border-slate-800/80">
             <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mr-1 flex items-center gap-1">
               <Zap className="w-3.5 h-3.5 text-amber-500" /> Quick Tags:
@@ -374,7 +359,6 @@ export default function HomePage() {
                 }`}
               >
                 <div className="flex items-start gap-4">
-                  {/* Logo or Initials */}
                   <div className="w-14 h-14 bg-slate-950 border border-slate-800 rounded-2xl flex items-center justify-center font-black text-amber-400 text-xl shrink-0 overflow-hidden shadow-inner">
                     {job.company_name?.charAt(0) || 'C'}
                   </div>
@@ -431,7 +415,7 @@ export default function HomePage() {
                 <div className="flex items-center gap-3 w-full md:w-auto justify-end border-t md:border-t-0 border-slate-800/80 pt-4 md:pt-0">
                   <Link
                     href={`/jobs/${job.id}`}
-                    className="w-full md:w-auto text-center bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-6 py-3.5 rounded-xl transition shadow-lg shadow-amber-500/10 cursor-pointer"
+                    className="w-full md:w-auto text-center bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-6 py-3.5 rounded-xl transition shadow-lg shadow-amber-500/10 cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     View Role & Apply <ArrowUpRight className="w-4 h-4" />
                   </Link>
