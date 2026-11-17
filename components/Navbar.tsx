@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase/client'
+import { backend } from '@/lib/backend'
 import { Crown, PlusCircle, LogOut, User } from 'lucide-react'
 
 export default function Navbar() {
@@ -16,44 +16,40 @@ export default function Navbar() {
   }, [])
 
   const checkUserAndAdminRole = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    setUser(user)
+    try {
+      const currentUser = await backend.getMe()
+      setUser(currentUser)
 
-    if (user) {
-      // Check if user has role = 'admin' in profiles
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (profile?.role === 'admin') {
+      if (currentUser?.role === 'admin' || currentUser?.custom_claims?.role === 'admin') {
         setIsAdmin(true)
       }
+    } catch {
+      setUser(null)
+      setIsAdmin(false)
     }
   }
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setIsAdmin(false)
-    router.push('/')
-    router.refresh()
+    try {
+      await backend.logout()
+    } catch {
+      // Ignore logout network errors
+    } finally {
+      setUser(null)
+      setIsAdmin(false)
+      router.push('/')
+      router.refresh()
+    }
   }
 
   return (
     <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 py-3.5 px-4 sm:px-8 flex items-center justify-between">
-      
-      {/* Brand Logo */}
       <Link href="/" className="font-black text-lg text-white tracking-tight flex items-center gap-2">
         <span className="bg-amber-500 text-slate-950 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black">A</span>
         <span>African Remote Jobs</span>
       </Link>
 
-      {/* Navigation Actions */}
       <div className="flex items-center gap-3 sm:gap-4">
-        
-        {/* 👑 ADMIN PORTAL BUTTON (Only visible to you/Admin) */}
         {isAdmin && (
           <Link
             href="/admin"
@@ -97,7 +93,6 @@ export default function Navbar() {
             Login
           </Link>
         )}
-
       </div>
     </nav>
   )
