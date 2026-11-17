@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase/client'
+import { backend } from '@/lib/backend'
 import { 
   Star, 
   MessageSquare, 
@@ -35,7 +35,6 @@ export default function ReviewsPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
-  // Form States
   const [activeTab, setActiveTab] = useState<'view' | 'leave'>('view')
   const [reviewType, setReviewType] = useState<'seeker_to_employer' | 'employer_to_seeker'>('seeker_to_employer')
   const [recipientName, setRecipientName] = useState('')
@@ -54,19 +53,19 @@ export default function ReviewsPage() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const { data: { user: authUser } } = await supabase.auth.getUser()
-      if (authUser) {
-        setUser(authUser)
+      try {
+        const res = await backend.getMe()
+        if (res?.user) setUser(res.user)
+      } catch {
+        setUser(null)
       }
 
-      // Fetch all reviews from Supabase
-      const { data: reviewsData, error: reviewsError } = await supabase
-        .from('reviews')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (!reviewsError && reviewsData) {
-        setReviews(reviewsData as unknown as Review[])
+      const reviewsData = await backend.list('reviews')
+      if (Array.isArray(reviewsData)) {
+        const sorted = [...reviewsData].sort(
+          (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        )
+        setReviews(sorted as Review[])
       }
     } catch (err) {
       console.error('Failed to load reviews:', err)
@@ -88,23 +87,18 @@ export default function ReviewsPage() {
     setSubmitting(true)
 
     try {
-      const reviewerName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Anonymous'
+      const reviewerName = user.custom_claims?.full_name || user.email?.split('@')[0] || 'Anonymous'
 
-      const { error: insertError } = await supabase
-        .from('reviews')
-        .insert([
-          {
-            reviewer_id: user.id,
-            reviewer_name: reviewerName,
-            recipient_name: recipientName.trim(),
-            rating,
-            review_type: reviewType,
-            title: reviewTitle.trim(),
-            comment: comment.trim(),
-          },
-        ])
-
-      if (insertError) throw insertError
+      await backend.create('reviews', {
+        reviewer_id: user.id,
+        reviewer_name: reviewerName,
+        recipient_name: recipientName.trim(),
+        rating,
+        review_type: reviewType,
+        title: reviewTitle.trim(),
+        comment: comment.trim(),
+        created_at: new Date().toISOString(),
+      })
 
       setSuccess('Review submitted successfully! Thank you for building trust on our platform.')
       setRecipientName('')
@@ -112,7 +106,6 @@ export default function ReviewsPage() {
       setComment('')
       setRating(5)
       
-      // Reload review feed
       loadData()
       setTimeout(() => setActiveTab('view'), 1500)
     } catch (err: unknown) {
@@ -125,7 +118,6 @@ export default function ReviewsPage() {
     }
   }
 
-  // Calculate Average Rating
   const averageRating = reviews.length > 0
     ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)
     : '5.0'
@@ -143,8 +135,6 @@ export default function ReviewsPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-amber-500 selection:text-slate-950">
-      
-      {/* Header Nav */}
       <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 py-4 px-4 sm:px-8 flex items-center justify-between">
         <Link href="/" className="font-black text-xl text-white tracking-tight flex items-center gap-2">
           <span className="bg-amber-500 text-slate-950 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black">A</span>
@@ -156,8 +146,6 @@ export default function ReviewsPage() {
       </nav>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-10">
-        
-        {/* Page Title */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-1.5 bg-slate-900 border border-amber-500/30 text-amber-400 text-xs font-extrabold px-3.5 py-1.5 rounded-full shadow-lg mb-4 backdrop-blur-md">
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -169,7 +157,6 @@ export default function ReviewsPage() {
           </p>
         </div>
 
-        {/* Overall Rating Summary Banner */}
         <div className="bg-gradient-to-r from-amber-500/10 via-slate-900 to-slate-900 border border-amber-500/30 rounded-3xl p-6 mb-8 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4 text-center sm:text-left">
             <div className="w-20 h-20 bg-slate-950 border border-slate-800 rounded-2xl flex flex-col items-center justify-center shrink-0">
@@ -199,7 +186,6 @@ export default function ReviewsPage() {
           </button>
         </div>
 
-        {/* Tab Controls */}
         <div className="grid grid-cols-2 p-1 bg-slate-900 border border-slate-800 rounded-2xl mb-8 max-w-md mx-auto">
           <button
             onClick={() => setActiveTab('view')}
@@ -219,7 +205,6 @@ export default function ReviewsPage() {
           </button>
         </div>
 
-        {/* Content Area */}
         {activeTab === 'leave' ? (
           <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-10 shadow-2xl backdrop-blur-xl">
             <h3 className="text-lg font-extrabold text-white mb-6 flex items-center gap-2">
@@ -241,8 +226,6 @@ export default function ReviewsPage() {
             )}
 
             <form onSubmit={handleSubmitReview} className="space-y-6">
-              
-              {/* Review Type Toggle */}
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                   I am rating a:
@@ -282,7 +265,6 @@ export default function ReviewsPage() {
                 </div>
               </div>
 
-              {/* Recipient Name */}
               <div>
                 <label htmlFor="recipientName" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                   {reviewType === 'seeker_to_employer' ? 'Employer or Company Name *' : 'Job Seeker Name *'}
@@ -299,7 +281,6 @@ export default function ReviewsPage() {
                 />
               </div>
 
-              {/* Interactive Star Picker */}
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                   Star Rating * ({rating} / 5 Stars)
@@ -326,7 +307,6 @@ export default function ReviewsPage() {
                 </div>
               </div>
 
-              {/* Review Headline */}
               <div>
                 <label htmlFor="reviewTitle" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                   Review Title / Headline *
@@ -343,7 +323,6 @@ export default function ReviewsPage() {
                 />
               </div>
 
-              {/* Feedback Details */}
               <div>
                 <label htmlFor="comment" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                   Detailed Feedback / Comments *
@@ -360,7 +339,6 @@ export default function ReviewsPage() {
                 />
               </div>
 
-              {/* Submit Button */}
               <div className="pt-2">
                 <button
                   type="submit"
@@ -376,11 +354,9 @@ export default function ReviewsPage() {
                   )}
                 </button>
               </div>
-
             </form>
           </div>
         ) : (
-          /* Review Feed List */
           <div className="space-y-4">
             {reviews.length === 0 ? (
               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-16 text-center">
@@ -439,9 +415,7 @@ export default function ReviewsPage() {
             )}
           </div>
         )}
-
       </div>
-
     </div>
   )
 }
