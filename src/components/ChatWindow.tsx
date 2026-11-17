@@ -1,11 +1,12 @@
-// src/components/ChatWindow.tsx
+'use client';
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useChat } from '../hooks/useChat';
 import { VideoCallModal } from './VideoCallModal';
 import { OfferCard } from './OfferCard';
 import { CreateOfferModal } from './CreateOfferModal';
 import { JobOffer } from '../types/negotiation';
-import { supabase } from '../lib/supabaseClient';
+import { backend } from '../lib/backend';
 
 interface ChatWindowProps {
   conversationId: string;
@@ -51,76 +52,81 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, offers]);
 
-  // Fetch Conversation metadata and Job Offers
+  // Fetch Conversation metadata and Job Offers from custom backend
   const fetchOffersAndMeta = useCallback(async () => {
-    // 1. Fetch metadata if not passed directly
-    const { data: convData } = await supabase
-      .from('conversations')
-      .select('job_id, employer_id, candidate_id')
-      .eq('id', conversationId)
-      .single();
+    try {
+      const convRes = await backend.list('conversations');
+      const conversations = Array.isArray(convRes) ? convRes : convRes?.records || [];
+      const convData = conversations.find((c: any) => c.id === conversationId);
 
-    if (convData) {
-      setConvMeta({
-        jobId: initialJobId || convData.job_id,
-        employerId: convData.employer_id,
-        candidateId: convData.candidate_id,
-      });
+      if (convData) {
+        setConvMeta({
+          jobId: initialJobId || convData.job_id || '',
+          employerId: convData.employer_id || '',
+          candidateId: convData.candidate_id || '',
+        });
+      } else if (initialJobId || initialRecipientId) {
+        setConvMeta({
+          jobId: initialJobId || '',
+          employerId: currentUserId,
+          candidateId: initialRecipientId || '',
+        });
+      }
+
+      const [offersRes, milestonesRes] = await Promise.all([
+        backend.list('job_offers'),
+        backend.list('offer_milestones'),
+      ]);
+
+      const allOffers = Array.isArray(offersRes) ? offersRes : offersRes?.records || [];
+      const allMilestones = Array.isArray(milestonesRes) ? milestonesRes : milestonesRes?.records || [];
+
+      const convOffers = allOffers
+        .filter((o: any) => o.conversation_id === conversationId)
+        .map((o: any) => ({
+          ...o,
+          milestones: allMilestones.filter((m: any) => m.offer_id === o.id),
+        }))
+        .sort(
+          (a: any, b: any) =>
+            new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+        );
+
+      setOffers(convOffers);
+    } catch (err) {
+      console.error('Failed to fetch conversation metadata or offers:', err);
     }
-
-    // 2. Fetch offers linked to this conversation
-    const { data: offersData } = await supabase
-      .from('job_offers')
-      .select('*, milestones:offer_milestones(*)')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
-
-    if (offersData) {
-      setOffers(offersData as any[]);
-    }
-  }, [conversationId, initialJobId]);
+  }, [conversationId, initialJobId, initialRecipientId, currentUserId]);
 
   useEffect(() => {
     fetchOffersAndMeta();
 
-    // Subscribe to realtime offer updates
-    const channel = supabase
-      .channel(`offers:${conversationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'job_offers',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        () => {
-          fetchOffersAndMeta();
+    const interval = setInterval(async () => {
+      await fetchOffersAndMeta();
+
+      // Check for incoming call signaling records
+      try {
+        const signalsRes = await backend.list('call_signals');
+        const signals = Array.isArray(signalsRes) ? signalsRes : signalsRes?.records || [];
+        const incomingOffer = signals.find(
+          (s: any) =>
+            s.conversation_id === conversationId &&
+            s.event === 'offer' &&
+            s.sender_id !== currentUserId &&
+            Date.now() - new Date(s.created_at || 0).getTime() < 20000
+        );
+        if (incomingOffer) {
+          setActiveCall((prev) =>
+            prev.isOpen ? prev : { isOpen: true, isCaller: false }
+          );
         }
-      )
-      .subscribe();
+      } catch {
+        // Ignore signal polling errors
+      }
+    }, 3000);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [conversationId, fetchOffersAndMeta]);
-
-  // Listen for incoming call notifications
-  useEffect(() => {
-    const channel = supabase.channel(`call:${conversationId}`);
-
-    channel
-      .on('broadcast', { event: 'offer' }, ({ payload }) => {
-        if (payload.senderId !== currentUserId) {
-          setActiveCall({ isOpen: true, isCaller: false });
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [conversationId, currentUserId]);
+    return () => clearInterval(interval);
+  }, [conversationId, currentUserId, fetchOffersAndMeta]);
 
   const handleStartCall = () => {
     setActiveCall({ isOpen: true, isCaller: true });
@@ -134,7 +140,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       setSending(true);
       await sendMessage(textInput);
       setTextInput('');
-    } catch (err) {
+    } catch {
       alert('Failed to send message.');
     } finally {
       setSending(false);
@@ -148,7 +154,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     try {
       setSending(true);
       await uploadFile(file);
-    } catch (err) {
+    } catch {
       alert('Failed to upload file.');
     } finally {
       setSending(false);
@@ -199,7 +205,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               onClick={() => setIsOfferModalOpen(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm transition-colors"
             >
-              💼 Make Offer
+              Make Offer
             </button>
           )}
 
@@ -208,7 +214,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             onClick={handleStartCall}
             className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm transition-colors"
           >
-            📹 Call
+            Call
           </button>
         </div>
       </div>
@@ -249,7 +255,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     rel="noopener noreferrer"
                     className="underline text-xs block mt-1 opacity-90 hover:opacity-100"
                   >
-                    📎 View Attachment
+                    View Attachment
                   </a>
                 )}
               </div>
@@ -267,12 +273,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* Message Input Form */}
       <form onSubmit={handleSend} className="p-3 border-t flex items-center gap-2">
-        {/* Attachment Label & Input with explicit id, name, and htmlFor */}
         <label
           htmlFor="chat-file-input"
-          className="cursor-pointer text-gray-500 hover:text-gray-700 p-2 transition-colors"
+          className="cursor-pointer text-gray-500 hover:text-gray-700 p-2 transition-colors text-xs font-semibold"
         >
-          📎
+          Attach
           <input
             id="chat-file-input"
             name="chat-file-input"
@@ -284,7 +289,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           />
         </label>
 
-        {/* Text Input with explicit id and name */}
         <input
           id="chat-message-input"
           name="chat-message-input"
