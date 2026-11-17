@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
-import { supabase } from '@/lib/supabase/client'
+import { backend } from '@/lib/backend'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -17,17 +17,19 @@ export default function ForgotPasswordPage() {
     setMessage(null)
     setErrorMsg(null)
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
-
-    if (error) {
-      setErrorMsg(error.message)
-    } else {
-      setMessage('Password reset link sent! Please check your email inbox.')
+    try {
+      await backend.create('password_reset_requests', {
+        email: email.trim().toLowerCase(),
+        requested_at: new Date().toISOString(),
+        status: 'pending'
+      })
+      setMessage('Password reset request recorded! Please check your email inbox or contact support if you need immediate assistance.')
       setEmail('')
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Unable to submit password reset request right now.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
@@ -60,8 +62,9 @@ export default function ForgotPasswordPage() {
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
                 Email Address
               </label>
-              <input id="email" 
-		name="email"
+              <input
+                id="email"
+                name="email"
                 type="email"
                 required
                 value={email}
