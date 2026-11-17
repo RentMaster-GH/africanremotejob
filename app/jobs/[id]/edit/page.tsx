@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase/client'
+import { backend } from '@/lib/backend'
 import { 
   Briefcase, 
   Building2, 
@@ -54,27 +54,25 @@ export default function EditJobPage({ params }: PageProps) {
   const fetchJobToEdit = async (idToFetch: string) => {
     try {
       setFetching(true)
-      const { data, error: fetchError } = await supabase
-        .from('jobs')
-        .select('*')
-        .eq('id', idToFetch)
-        .single()
+      const records = await backend.list('jobs')
+      const data = (records || []).find((item: any) => String(item.id) === String(idToFetch))
 
-      if (fetchError) throw fetchError
-
-      if (data) {
-        setTitle(data.title || '')
-        setCompanyName(data.company_name || '')
-        setCategory(data.category || 'Software Engineering')
-        setJobType(data.job_type || 'Full-time')
-        setExperienceLevel(data.experience_level || 'Mid-level')
-        setLocationRestriction(data.location_restriction || 'Africa (GMT / WAT)')
-        setSalaryMin(data.salary_min ? String(data.salary_min) : '')
-        setSalaryMax(data.salary_max ? String(data.salary_max) : '')
-        setApplicationUrlOrEmail(data.application_url_or_email || '')
-        setDescription(data.description || '')
-        setIsFeatured(data.is_featured || false)
+      if (!data) {
+        setError('Job listing not found.')
+        return
       }
+
+      setTitle(data.title || '')
+      setCompanyName(data.company_name || '')
+      setCategory(data.category || 'Software Engineering')
+      setJobType(data.job_type || 'Full-time')
+      setExperienceLevel(data.experience_level || 'Mid-level')
+      setLocationRestriction(data.location_restriction || 'Africa (GMT / WAT)')
+      setSalaryMin(data.salary_min ? String(data.salary_min) : '')
+      setSalaryMax(data.salary_max ? String(data.salary_max) : '')
+      setApplicationUrlOrEmail(data.application_url_or_email || '')
+      setDescription(data.description || '')
+      setIsFeatured(Boolean(data.is_featured))
     } catch (err: unknown) {
       console.error('Fetch Job Error:', err)
       setError('Failed to load job details for editing.')
@@ -89,29 +87,20 @@ export default function EditJobPage({ params }: PageProps) {
     setSaving(true)
 
     try {
-      const { error: updateError } = await supabase
-        .from('jobs')
-        .update({
-          title: title.trim(),
-          company_name: companyName.trim(),
-          category,
-          job_type: jobType,
-          experience_level: experienceLevel,
-          location_restriction: locationRestriction,
-          salary_min: salaryMin ? Number(salaryMin) : null,
-          salary_max: salaryMax ? Number(salaryMax) : null,
-          currency: 'USD',
-          application_url_or_email: applicationUrlOrEmail.trim(),
-          description: description.trim(),
-          is_featured: isFeatured,
-        })
-        .eq('id', jobId)
-
-      if (updateError) {
-        setError(updateError.message || 'Failed to update job listing.')
-        setSaving(false)
-        return
-      }
+      await backend.update('jobs', jobId, {
+        title: title.trim(),
+        company_name: companyName.trim(),
+        category,
+        job_type: jobType,
+        experience_level: experienceLevel,
+        location_restriction: locationRestriction,
+        salary_min: salaryMin ? Number(salaryMin) : null,
+        salary_max: salaryMax ? Number(salaryMax) : null,
+        currency: 'USD',
+        application_url_or_email: applicationUrlOrEmail.trim(),
+        description: description.trim(),
+        is_featured: isFeatured,
+      })
 
       setSuccess(true)
       setTimeout(() => {
@@ -119,9 +108,7 @@ export default function EditJobPage({ params }: PageProps) {
         router.refresh()
       }, 1500)
     } catch (err: unknown) {
-      const errorMessage = typeof err === 'object' && err !== null && 'message' in err
-        ? String((err as { message: unknown }).message)
-        : 'Failed to update job listing.'
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update job listing.'
       setError(errorMessage)
     } finally {
       setSaving(false)
@@ -141,8 +128,6 @@ export default function EditJobPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-amber-500 selection:text-slate-950">
-      
-      {/* Navigation Bar */}
       <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 py-4 px-4 sm:px-8 flex items-center justify-between">
         <Link href="/" className="font-black text-xl text-white tracking-tight flex items-center gap-2">
           <span className="bg-amber-500 text-slate-950 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black">A</span>
@@ -154,8 +139,6 @@ export default function EditJobPage({ params }: PageProps) {
       </nav>
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-10">
-        
-        {/* Header */}
         <div className="text-center mb-10">
           <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Edit Job Listing</h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-2 font-medium">
@@ -163,10 +146,7 @@ export default function EditJobPage({ params }: PageProps) {
           </p>
         </div>
 
-        {/* Form Container */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-10 shadow-2xl backdrop-blur-xl">
-          
-          {/* Success Banner */}
           {success && (
             <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-2xl p-4 mb-8 flex items-start gap-3">
               <CheckCircle2 className="w-5 h-5 shrink-0" />
@@ -177,7 +157,6 @@ export default function EditJobPage({ params }: PageProps) {
             </div>
           )}
 
-          {/* Error Banner */}
           {error && (
             <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-2xl p-4 mb-8 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 shrink-0" />
@@ -189,8 +168,6 @@ export default function EditJobPage({ params }: PageProps) {
           )}
 
           <form onSubmit={handleUpdateJob} className="space-y-6">
-            
-            {/* Section 1: Company & Role Details */}
             <div className="space-y-4">
               <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
                 <Building2 className="w-4 h-4" /> Company & Role Details
@@ -229,7 +206,6 @@ export default function EditJobPage({ params }: PageProps) {
               </div>
             </div>
 
-            {/* Section 2: Category & Specifications */}
             <div className="space-y-4 pt-4 border-t border-slate-800/80">
               <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
                 <Briefcase className="w-4 h-4" /> Category & Specifications
@@ -294,7 +270,6 @@ export default function EditJobPage({ params }: PageProps) {
               </div>
             </div>
 
-            {/* Section 3: Location & Salary */}
             <div className="space-y-4 pt-4 border-t border-slate-800/80">
               <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
                 <Globe className="w-4 h-4" /> Location & Compensation
@@ -349,13 +324,11 @@ export default function EditJobPage({ params }: PageProps) {
               </div>
             </div>
 
-            {/* Section 4: Application URL or Email + Guidance Card */}
             <div className="space-y-4 pt-4 border-t border-slate-800/80">
               <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
                 <Send className="w-4 h-4" /> Application Link or Email
               </h3>
 
-              {/* Employer Guidance Help Card */}
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 sm:p-5 text-xs text-slate-300 space-y-2.5">
                 <div className="flex items-center gap-2 font-bold text-amber-400 text-xs uppercase tracking-wider">
                   <HelpCircle className="w-4 h-4 text-amber-500" />
@@ -404,7 +377,6 @@ export default function EditJobPage({ params }: PageProps) {
               </div>
             </div>
 
-            {/* Section 5: Description */}
             <div className="space-y-4 pt-4 border-t border-slate-800/80">
               <div>
                 <label htmlFor="description" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
@@ -422,7 +394,6 @@ export default function EditJobPage({ params }: PageProps) {
               </div>
             </div>
 
-            {/* Section 6: Featured Checkbox */}
             <div className="pt-2">
               <label className="flex items-center gap-3 bg-slate-950 border border-slate-800 p-4 rounded-xl cursor-pointer hover:border-amber-500/50 transition">
                 <input
@@ -441,7 +412,6 @@ export default function EditJobPage({ params }: PageProps) {
               </label>
             </div>
 
-            {/* Submit Button */}
             <div className="pt-4 border-t border-slate-800 flex items-center justify-between gap-4">
               <button
                 type="button"
@@ -465,13 +435,9 @@ export default function EditJobPage({ params }: PageProps) {
                 )}
               </button>
             </div>
-
           </form>
-
         </div>
-
       </div>
-
     </div>
   )
 }
