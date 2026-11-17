@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase/client'
+import { backend } from '@/lib/backend'
 import { 
   ShieldCheck, 
   UserCheck, 
@@ -37,7 +37,7 @@ export default function KYCVerificationPage() {
   const checkUserAndKyc = async () => {
     try {
       setLoading(true)
-      const { data: { user: authUser } } = await supabase.auth.getUser()
+      const authUser = await backend.getMe()
 
       if (!authUser) {
         router.push('/login?next=/kyc')
@@ -46,18 +46,15 @@ export default function KYCVerificationPage() {
 
       setUser(authUser)
       setEmail(authUser.email || '')
-      setFullName(authUser.user_metadata?.full_name || '')
+      setFullName(authUser.custom_claims?.full_name || authUser.full_name || '')
 
-      // Check existing KYC submission
-      const { data: kycData } = await supabase
-        .from('kyc_verifications')
-        .select('*')
-        .eq('user_id', authUser.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
+      const kycRecords = await backend.list('kyc_verifications')
+      const userKyc = Array.isArray(kycRecords)
+        ? kycRecords.find((item: any) => item.user_id === authUser.id || item.email === authUser.email)
+        : null
 
-      if (kycData && kycData.length > 0) {
-        setKycStatus(kycData[0].status as any)
+      if (userKyc?.status) {
+        setKycStatus(userKyc.status as 'unverified' | 'pending' | 'verified' | 'rejected')
       }
     } catch (err: unknown) {
       console.error('KYC Load Error:', err)
@@ -73,34 +70,34 @@ export default function KYCVerificationPage() {
     setSubmitting(true)
 
     try {
-      const { error: insertError } = await supabase
-        .from('kyc_verifications')
-        .insert([
-          {
-            user_id: user?.id,
-            full_name: fullName.trim(),
-            email: email.trim(),
-            id_type: idType,
-            id_number: idNumber.trim(),
-            document_url: documentUrl.trim() || 'https://placeholder-id.com',
-            status: 'verified', // Auto-verifies for instant demo badge testing!
-          },
-        ])
+      await backend.create('kyc_verifications', {
+        user_id: user?.id,
+        full_name: fullName.trim(),
+        email: email.trim(),
+        id_type: idType,
+        id_number: idNumber.trim(),
+        document_url: documentUrl.trim() || 'https://placeholder-id.com',
+        status: 'verified',
+      })
 
-      if (insertError) throw insertError
-
-      // Update user jobs to verified badge status
-      await supabase
-        .from('jobs')
-        .update({ is_verified: true })
-        .eq('company_name', fullName.trim())
+      const allJobs = await backend.list('jobs')
+      if (Array.isArray(allJobs)) {
+        const matchingJobs = allJobs.filter(
+          (job: any) =>
+            job.company_name?.toLowerCase() === fullName.trim().toLowerCase() ||
+            job.owner_id === user?.id
+        )
+        await Promise.all(
+          matchingJobs.map((job: any) =>
+            backend.update('jobs', job.id, { is_verified: true })
+          )
+        )
+      }
 
       setKycStatus('verified')
       setMessage('Identity Verified Successfully! Your profile and listings now display the Green Verification Badge.')
     } catch (err: unknown) {
-      const errorMessage = typeof err === 'object' && err !== null && 'message' in err
-        ? String((err as { message: unknown }).message)
-        : 'Failed to submit KYC verification.'
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit KYC verification.'
       setError(errorMessage)
     } finally {
       setSubmitting(false)
@@ -120,8 +117,6 @@ export default function KYCVerificationPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-amber-500 selection:text-slate-950">
-      
-      {/* Header */}
       <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 py-4 px-4 sm:px-8 flex items-center justify-between">
         <Link href="/" className="font-black text-xl text-white tracking-tight flex items-center gap-2">
           <span className="bg-amber-500 text-slate-950 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black">A</span>
@@ -133,8 +128,6 @@ export default function KYCVerificationPage() {
       </nav>
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-10">
-        
-        {/* Banner */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-1.5 bg-slate-900 border border-emerald-500/30 text-emerald-400 text-xs font-extrabold px-3.5 py-1.5 rounded-full shadow-lg mb-4 backdrop-blur-md">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -146,7 +139,6 @@ export default function KYCVerificationPage() {
           </p>
         </div>
 
-        {/* Live Badge Preview Card */}
         <div className="bg-gradient-to-r from-emerald-500/10 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-3xl p-6 mb-8 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-2xl flex items-center justify-center shrink-0">
@@ -166,7 +158,6 @@ export default function KYCVerificationPage() {
           </div>
         </div>
 
-        {/* Status Banners */}
         {kycStatus === 'verified' && (
           <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-3xl p-6 mb-8 flex items-start gap-3">
             <CheckCircle2 className="w-6 h-6 shrink-0 mt-0.5" />
@@ -191,9 +182,7 @@ export default function KYCVerificationPage() {
           </div>
         )}
 
-        {/* Form Container */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-10 shadow-2xl backdrop-blur-xl">
-          
           {error && (
             <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-2xl p-4 mb-6 flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -209,8 +198,6 @@ export default function KYCVerificationPage() {
           )}
 
           <form onSubmit={handleSubmitKYC} className="space-y-5">
-            
-            {/* Full Legal Name */}
             <div>
               <label htmlFor="fullName" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                 Full Legal Name (as shown on ID) *
@@ -230,7 +217,6 @@ export default function KYCVerificationPage() {
               </div>
             </div>
 
-            {/* Email Address */}
             <div>
               <label htmlFor="email" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                 Email Address *
@@ -246,7 +232,6 @@ export default function KYCVerificationPage() {
               />
             </div>
 
-            {/* ID Type & ID Number */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="idType" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
@@ -286,7 +271,6 @@ export default function KYCVerificationPage() {
               </div>
             </div>
 
-            {/* Document Photo URL / Upload Link */}
             <div>
               <label htmlFor="documentUrl" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                 ID Document Photo URL or Drive Link *
@@ -308,7 +292,6 @@ export default function KYCVerificationPage() {
               </p>
             </div>
 
-            {/* Submit Button */}
             <div className="pt-4 border-t border-slate-800">
               <button
                 type="submit"
@@ -324,13 +307,9 @@ export default function KYCVerificationPage() {
                 )}
               </button>
             </div>
-
           </form>
-
         </div>
-
       </div>
-
     </div>
   )
 }
