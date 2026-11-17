@@ -3,25 +3,24 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase/client'
-import { 
-  User, 
-  Building2, 
-  Smartphone, 
-  Bell, 
-  Lock, 
-  ShieldCheck, 
-  CheckCircle2, 
-  AlertCircle, 
-  Save, 
-  ArrowLeft, 
-  Eye, 
+import { backend } from '@/lib/backend'
+import {
+  User,
+  Building2,
+  Smartphone,
+  Bell,
+  Lock,
+  ShieldCheck,
+  CheckCircle2,
+  AlertCircle,
+  Save,
+  ArrowLeft,
+  Eye,
   EyeOff,
   FileText,
   UploadCloud,
   ExternalLink,
-  Trash2,
-  Paperclip
+  Paperclip,
 } from 'lucide-react'
 
 export default function SettingsPage() {
@@ -32,33 +31,31 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Profile Form States
+  const [userId, setUserId] = useState<string>('')
+  const [userEmail, setUserEmail] = useState<string>('')
+  const [profileRecordId, setProfileRecordId] = useState<string | null>(null)
+
   const [fullName, setFullName] = useState('')
   const [headline, setHeadline] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [website, setWebsite] = useState('')
 
-  // CV & Document States
   const [resumeUrl, setResumeUrl] = useState('')
   const [resumeName, setResumeName] = useState('')
   const [uploadingCv, setUploadingCv] = useState(false)
   const [portfolioUrl, setPortfolioUrl] = useState('')
 
-  // Company Form States
   const [companyName, setCompanyName] = useState('')
   const [companyLogoUrl, setCompanyLogoUrl] = useState('')
   const [companyDescription, setCompanyDescription] = useState('')
 
-  // Payout Form States
   const [payoutMethod, setPayoutMethod] = useState('momo')
   const [momoProvider, setMomoProvider] = useState('MTN MoMo')
   const [momoNumber, setMomoNumber] = useState('')
 
-  // Notification States
   const [emailJobAlerts, setEmailJobAlerts] = useState(true)
   const [marketingEmails, setMarketingEmails] = useState(false)
 
-  // Security Form States
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -70,49 +67,95 @@ export default function SettingsPage() {
   const loadUserSettings = async () => {
     try {
       setLoading(true)
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+      const me = await backend.getMe()
 
-      if (authError || !authUser) {
+      if (!me || (!me.id && !me.sub && !me.email)) {
         router.push('/login?next=/settings')
         return
       }
 
-      // Load user metadata
-      const meta = authUser.user_metadata || {}
-      setFullName(meta.full_name || '')
-      setHeadline(meta.headline || '')
-      setPhoneNumber(meta.phone_number || '')
-      setWebsite(meta.website || '')
+      const uid = String(me.id || me.sub || me.email)
+      setUserId(uid)
+      setUserEmail(me.email || '')
 
-      setResumeUrl(meta.resume_url || '')
-      setResumeName(meta.resume_name || '')
-      setPortfolioUrl(meta.portfolio_url || '')
+      const meta = me.custom_claims || me.user_metadata || {}
 
-      setCompanyName(meta.company_name || '')
-      setCompanyLogoUrl(meta.company_logo_url || '')
-      setCompanyDescription(meta.company_description || '')
+      const records = await backend.list('user_profiles')
+      const existing = Array.isArray(records)
+        ? records.find((r: any) => r.user_id === uid || r.email === me.email)
+        : null
 
-      setPayoutMethod(meta.payout_method || 'momo')
-      setMomoProvider(meta.momo_provider || 'MTN MoMo')
-      setMomoNumber(meta.momo_number || '')
+      const data = existing || meta
+      if (existing?.id) {
+        setProfileRecordId(existing.id)
+      }
 
-      setEmailJobAlerts(meta.email_job_alerts ?? true)
-      setMarketingEmails(meta.marketing_emails ?? false)
-    } catch (err: unknown) {
+      setFullName(data.full_name || meta.full_name || '')
+      setHeadline(data.headline || '')
+      setPhoneNumber(data.phone_number || '')
+      setWebsite(data.website || '')
+
+      setResumeUrl(data.resume_url || '')
+      setResumeName(data.resume_name || '')
+      setPortfolioUrl(data.portfolio_url || '')
+
+      setCompanyName(data.company_name || '')
+      setCompanyLogoUrl(data.company_logo_url || '')
+      setCompanyDescription(data.company_description || '')
+
+      setPayoutMethod(data.payout_method || 'momo')
+      setMomoProvider(data.momo_provider || 'MTN MoMo')
+      setMomoNumber(data.momo_number || '')
+
+      setEmailJobAlerts(data.email_job_alerts ?? true)
+      setMarketingEmails(data.marketing_emails ?? false)
+    } catch (err) {
       console.error('Failed to load settings:', err)
+      router.push('/login?next=/settings')
     } finally {
       setLoading(false)
     }
   }
 
-  // Handle direct CV File Upload to Supabase Storage
+  const persistProfilePayload = async (overrides: Record<string, any> = {}) => {
+    const payload = {
+      user_id: userId,
+      email: userEmail,
+      full_name: fullName.trim(),
+      headline: headline.trim(),
+      phone_number: phoneNumber.trim(),
+      website: website.trim(),
+      resume_url: resumeUrl.trim(),
+      resume_name: resumeName.trim(),
+      portfolio_url: portfolioUrl.trim(),
+      company_name: companyName.trim(),
+      company_logo_url: companyLogoUrl.trim(),
+      company_description: companyDescription.trim(),
+      payout_method: payoutMethod,
+      momo_provider: momoProvider,
+      momo_number: momoNumber.trim(),
+      email_job_alerts: emailJobAlerts,
+      marketing_emails: marketingEmails,
+      updated_at: new Date().toISOString(),
+      ...overrides,
+    }
+
+    if (profileRecordId) {
+      await backend.update('user_profiles', profileRecordId, payload)
+    } else {
+      const created = await backend.create('user_profiles', payload)
+      if (created?.id) {
+        setProfileRecordId(created.id)
+      }
+    }
+  }
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Limit file size to 10MB
-    if (file.size > 10 * 1024 * 1024) {
-      setError('File size exceeds 10MB limit. Please upload a smaller PDF or Word document.')
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size exceeds 5MB limit. Please upload a smaller PDF or Word document, or paste a Google Drive link below.')
       return
     }
 
@@ -121,44 +164,25 @@ export default function SettingsPage() {
     setMessage(null)
 
     try {
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9]/g, '_')}.${fileExt}`
-      const filePath = `resumes/${fileName}`
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result || ''))
+        reader.onerror = () => reject(new Error('Could not read file'))
+        reader.readAsDataURL(file)
+      })
 
-      // Upload file to Supabase Storage Bucket
-      const { error: uploadError } = await supabase.storage
-        .from('resumes')
-        .upload(filePath, file, { upsert: true })
-
-      if (uploadError) {
-        console.warn('Storage bucket upload notice:', uploadError.message)
-      }
-
-      // Get Public Download URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('resumes')
-        .getPublicUrl(filePath)
-
-      const finalUrl = publicUrl || `https://drive.google.com/search?q=${encodeURIComponent(file.name)}`
-      
-      setResumeUrl(finalUrl)
+      setResumeUrl(dataUrl)
       setResumeName(file.name)
 
-      // Save to Supabase Auth User Metadata
-      await supabase.auth.updateUser({
-        data: {
-          resume_url: finalUrl,
-          resume_name: file.name,
-          resume_updated_at: new Date().toISOString(),
-        },
+      await persistProfilePayload({
+        resume_url: dataUrl,
+        resume_name: file.name,
+        resume_updated_at: new Date().toISOString(),
       })
 
       setMessage(`Successfully uploaded ${file.name}!`)
-    } catch (err: unknown) {
-      const errorMessage = typeof err === 'object' && err !== null && 'message' in err
-        ? String((err as { message: unknown }).message)
-        : 'Failed to upload CV file.'
-      setError(errorMessage)
+    } catch (err: any) {
+      setError(err?.message || 'Failed to upload CV file.')
     } finally {
       setUploadingCv(false)
     }
@@ -171,34 +195,10 @@ export default function SettingsPage() {
     setSaving(true)
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        data: {
-          full_name: fullName.trim(),
-          headline: headline.trim(),
-          phone_number: phoneNumber.trim(),
-          website: website.trim(),
-          resume_url: resumeUrl.trim(),
-          resume_name: resumeName.trim(),
-          portfolio_url: portfolioUrl.trim(),
-          company_name: companyName.trim(),
-          company_logo_url: companyLogoUrl.trim(),
-          company_description: companyDescription.trim(),
-          payout_method: payoutMethod,
-          momo_provider: momoProvider,
-          momo_number: momoNumber.trim(),
-          email_job_alerts: emailJobAlerts,
-          marketing_emails: marketingEmails,
-        },
-      })
-
-      if (updateError) throw updateError
-
+      await persistProfilePayload()
       setMessage('Settings updated successfully!')
-    } catch (err: unknown) {
-      const errorMessage = typeof err === 'object' && err !== null && 'message' in err
-        ? String((err as { message: unknown }).message)
-        : 'Failed to update settings.'
-      setError(errorMessage)
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update settings.')
     } finally {
       setSaving(false)
     }
@@ -217,20 +217,18 @@ export default function SettingsPage() {
     setSaving(true)
 
     try {
-      const { error: passError } = await supabase.auth.updateUser({
-        password: newPassword,
+      await backend.create('password_reset_requests', {
+        user_id: userId,
+        email: userEmail,
+        status: 'requested',
+        requested_at: new Date().toISOString(),
       })
 
-      if (passError) throw passError
-
-      setMessage('Password changed successfully!')
+      setMessage('Password update request recorded. Use the Forgot Password flow if you need an immediate reset.')
       setNewPassword('')
       setConfirmPassword('')
-    } catch (err: unknown) {
-      const errorMessage = typeof err === 'object' && err !== null && 'message' in err
-        ? String((err as { message: unknown }).message)
-        : 'Failed to update password.'
-      setError(errorMessage)
+    } catch (err: any) {
+      setError(err?.message || 'Failed to submit password update.')
     } finally {
       setSaving(false)
     }
@@ -249,8 +247,6 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-amber-500 selection:text-slate-950">
-      
-      {/* Header */}
       <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 py-4 px-4 sm:px-8 flex items-center justify-between">
         <Link href="/" className="font-black text-xl text-white tracking-tight flex items-center gap-2">
           <span className="bg-amber-500 text-slate-950 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black">A</span>
@@ -262,8 +258,6 @@ export default function SettingsPage() {
       </nav>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-10">
-        
-        {/* Title */}
         <div className="mb-8">
           <h1 className="text-3xl font-black text-white tracking-tight">Account Settings</h1>
           <p className="text-xs text-slate-400 mt-1 font-medium">
@@ -271,7 +265,6 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {/* Banners */}
         {message && (
           <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-2xl p-4 mb-6 flex items-start gap-2.5">
             <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
@@ -286,10 +279,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Settings Layout Grid */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-          
-          {/* Sidebar Tabs */}
           <div className="md:col-span-4 space-y-1.5">
             <button
               onClick={() => { setActiveTab('profile'); setMessage(null); setError(null) }}
@@ -357,7 +347,6 @@ export default function SettingsPage() {
               <Lock className="w-4 h-4" /> Security & Password
             </button>
 
-            {/* KYC Shortcut Banner */}
             <div className="pt-4">
               <Link
                 href="/kyc"
@@ -373,10 +362,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Main Content Area */}
           <div className="md:col-span-8">
-            
-            {/* Tab 1: Profile Settings */}
             {activeTab === 'profile' && (
               <form onSubmit={handleSaveProfile} className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
                 <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
@@ -457,19 +443,17 @@ export default function SettingsPage() {
               </form>
             )}
 
-            {/* Tab 2: Resume & Documents (CV) */}
             {activeTab === 'documents' && (
               <form onSubmit={handleSaveProfile} className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
                 <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
                   <FileText className="w-4 h-4" /> Resume & CV Documents
                 </h3>
 
-                {/* Upload Active CV File Card */}
                 <div className="bg-slate-950 border border-dashed border-slate-800 hover:border-amber-500/50 rounded-2xl p-6 text-center transition">
                   <UploadCloud className="w-10 h-10 text-amber-500 mx-auto mb-3" />
                   <p className="text-xs font-bold text-white">Upload Your Primary CV / Resume</p>
                   <p className="text-[11px] text-slate-500 mt-1 mb-4">
-                    Supports PDF, DOC, or DOCX files up to 10MB.
+                    Supports PDF, DOC, or DOCX files up to 5MB.
                   </p>
 
                   <label className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-6 py-3 rounded-xl transition cursor-pointer shadow-lg shadow-amber-500/10">
@@ -487,7 +471,6 @@ export default function SettingsPage() {
                   </label>
                 </div>
 
-                {/* Currently Active Uploaded Resume Card */}
                 {resumeUrl && (
                   <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
@@ -504,6 +487,7 @@ export default function SettingsPage() {
 
                     <a
                       href={resumeUrl}
+                      download={resumeName || 'resume.pdf'}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0"
@@ -513,7 +497,6 @@ export default function SettingsPage() {
                   </div>
                 )}
 
-                {/* External Drive / Portfolio Link Fallback */}
                 <div className="pt-2">
                   <label htmlFor="portfolioUrl" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                     Google Drive Resume or Portfolio Link
@@ -544,7 +527,6 @@ export default function SettingsPage() {
               </form>
             )}
 
-            {/* Tab 3: Company Settings */}
             {activeTab === 'company' && (
               <form onSubmit={handleSaveProfile} className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
                 <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
@@ -608,7 +590,6 @@ export default function SettingsPage() {
               </form>
             )}
 
-            {/* Tab 4: Payout Settings */}
             {activeTab === 'payout' && (
               <form onSubmit={handleSaveProfile} className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
                 <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
@@ -626,9 +607,9 @@ export default function SettingsPage() {
                     onChange={(e) => setPayoutMethod(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-300 text-xs rounded-xl px-3.5 py-3 outline-none font-bold cursor-pointer"
                   >
-                    <option value="momo">📱 Mobile Money (MTN MoMo / Telecel / AirtelTigo)</option>
-                    <option value="usd_bank">💵 USD Direct Wire / Wise / Payoneer</option>
-                    <option value="crypto">⚡ USDC / Crypto Stablecoin</option>
+                    <option value="momo">Mobile Money (MTN MoMo / Telecel / AirtelTigo)</option>
+                    <option value="usd_bank">USD Direct Wire / Wise / Payoneer</option>
+                    <option value="crypto">USDC / Crypto Stablecoin</option>
                   </select>
                 </div>
 
@@ -681,7 +662,6 @@ export default function SettingsPage() {
               </form>
             )}
 
-            {/* Tab 5: Notifications */}
             {activeTab === 'notifications' && (
               <form onSubmit={handleSaveProfile} className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
                 <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
@@ -734,7 +714,6 @@ export default function SettingsPage() {
               </form>
             )}
 
-            {/* Tab 6: Security Settings */}
             {activeTab === 'security' && (
               <form onSubmit={handleUpdatePassword} className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
                 <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
@@ -799,13 +778,9 @@ export default function SettingsPage() {
                 </div>
               </form>
             )}
-
           </div>
-
         </div>
-
       </div>
-
     </div>
   )
 }
